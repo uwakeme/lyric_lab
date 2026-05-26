@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-node/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.DS_Store
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Prisma
+server/prisma/migrations/
+
+# Cache
+.cache/
+.turbo/
+
+# Vite
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml

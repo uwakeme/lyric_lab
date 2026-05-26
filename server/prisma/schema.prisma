@@ -1,0 +1,72 @@
+// Prisma schema for LyricLab
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  versions     UserVersion[]
+}
+
+model Song {
+  id              String    @id @default(uuid())
+  title           String
+  artist          String
+  sourceUrl       String?
+  sourcePlatform  String?
+  crawledAt       DateTime  @default(now())
+  lyrics          Lyric[]
+  versions        UserVersion[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([title])
+  @@index([artist])
+}
+
+model Lyric {
+  id           String   @id @default(uuid())
+  songId       String
+  song         Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  sectionOrder Int
+  sectionTitle String
+  lineOrder    Int
+  lineText     String
+  createdAt    DateTime @default(now())
+
+  @@index([songId])
+}
+
+model CrawlLog {
+  id           String   @id @default(uuid())
+  platform     String
+  status       String   // 'success' | 'failed' | 'partial'
+  songsFound   Int      @default(0)
+  errorMessage String?
+  crawledAt    DateTime @default(now())
+}
+
+model UserVersion {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  songId    String?
+  song      Song?    @relation(fields: [songId], references: [id], onDelete: SetNull)
+  content   Json
+  label     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([songId])
+}
