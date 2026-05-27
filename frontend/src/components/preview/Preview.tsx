@@ -22,7 +22,7 @@ export function Preview({ onClose }: PreviewProps) {
   const currentTheme = themes.find(t => t.id === theme) || themes[0];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center pt-8 p-4 animate-fade-in overflow-y-auto">
       <div className="w-full max-w-md">
         {/* Theme Selector */}
         <div className="flex items-center justify-between mb-4">

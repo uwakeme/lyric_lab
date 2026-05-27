@@ -129,7 +129,15 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   };
 
   const handleAddBox = () => {
-    onAdaptedChange(adaptedText + '□');
+    // Add an empty input box at the end (allows exceeding original word count)
+    const newChars = [...adaptedChars];
+    // Fill intermediate unfilled slots with original chars (gray), 
+    // then append one empty slot at the very end (white)
+    while (newChars.length < originalChars.length) {
+      newChars.push(originalChars[newChars.length]);
+    }
+    newChars.push(' ');
+    onAdaptedChange(newChars.join(''));
   };
 
   const handleRemoveBox = () => {
@@ -138,7 +146,8 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
     }
   };
 
-  const adaptedCount = adaptedText ? countChars(adaptedText) : 0;
+  const adaptedCount = countChars(adaptedText);
+  const originalCount = countChars(originalText);
   const isOverLimit = adaptedCount > charLimit.max;
   const isUnderLimit = adaptedCount < charLimit.min;
 
@@ -207,7 +216,7 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
         <span className={`text-xs tabular-nums ${
           isOverLimit ? 'text-error font-medium' : isUnderLimit ? 'text-warning' : 'text-slate-400'
         }`}>
-          {adaptedCount}/{charLimit.max} 字
+          {adaptedCount}/{originalCount} 字
         </span>
       </div>
     </div>
