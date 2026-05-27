@@ -27,7 +27,7 @@ export default function App() {
 
   const { currentSong, loadFromAutoSave } = useEditorStore();
   const { checkAuth } = useAuthStore();
-  const { success } = useToast();
+  const { toasts, dismissToast, success } = useToast();
 
   useEffect(() => {
     checkAuth();
@@ -249,7 +249,7 @@ export default function App() {
       />
 
       {/* Toast Notifications */}
-      <ToastContainer toasts={[]} onDismiss={() => {}} />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Preview Modal */}
       {showPreview && <Preview onClose={() => setShowPreview(false)} />}

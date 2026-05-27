@@ -33,16 +33,16 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
   };
 
   const styles = {
-    success: 'bg-success text-white',
-    error: 'bg-error text-white',
-    warning: 'bg-warning text-white',
-    info: 'bg-primary-500 text-white',
+    success: 'toast-success',
+    error: 'toast-error',
+    warning: 'toast-warning',
+    info: 'toast-info',
   };
 
   return (
     <div
       className={`
-        flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium
+        flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white
         ${styles[toast.type]}
         ${isVisible ? 'animate-fade-in' : 'opacity-0 transition-opacity duration-200'}
       `}

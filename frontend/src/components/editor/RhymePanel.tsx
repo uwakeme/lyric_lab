@@ -35,7 +35,7 @@ export function RhymePanel() {
       newText = word.word;
     }
 
-    updateLineText(selectedSection.id, selectedLine.id, newText);
+    updateLineText(selectedSection.id, selectedLine.id, newText, 'adapted');
     success(`已插入"${word.word}"`);
   };
 
