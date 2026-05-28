@@ -1,8 +1,6 @@
 // Crawler service - lyrics crawling logic
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import * as songService from './songService';
-
-const prisma = new PrismaClient();
 
 interface CrawlResult {
   platform: string;
@@ -27,7 +25,6 @@ export async function crawlFromSource(
         const exists = await songService.songExists(song.title, song.artist);
 
         if (exists) {
-          // Update crawledAt timestamp
           const existing = await prisma.song.findFirst({
             where: { title: song.title, artist: song.artist },
           });
@@ -37,7 +34,6 @@ export async function crawlFromSource(
           continue;
         }
 
-        // Parse lyrics
         const parsedLyrics = parseLyricsText(song.lyrics);
 
         await songService.createSong(
@@ -57,7 +53,6 @@ export async function crawlFromSource(
     errorMessage = err instanceof Error ? err.message : 'Unknown error';
   }
 
-  // Log crawl result
   await prisma.crawlLog.create({
     data: {
       platform,
@@ -87,15 +82,18 @@ function parseLyricsText(text: string): Array<{
   let currentSection = 0;
   let sectionTitle = '主歌';
   let lineOrder = 0;
+  let hasSectionHeader = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Check for section header
     const sectionMatch = trimmed.match(/^\[(.+?)\]$/);
     if (sectionMatch) {
-      currentSection++;
+      if (hasSectionHeader) {
+        currentSection++;
+      }
+      hasSectionHeader = true;
       sectionTitle = sectionMatch[1];
       lineOrder = 0;
       continue;

@@ -18,7 +18,7 @@ interface VersionMeta {
 }
 
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
+  return crypto.randomUUID().slice(0, 9);
 }
 
 export function saveAutoSave(song: Song): void {

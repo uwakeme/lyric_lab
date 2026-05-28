@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { searchSongs, getHotSongs, getSongById, importSongFromText, getFallbackSongs } from '../../services/songService';
 import { useToast } from '../common/Toast';
-import { Search, Music, Upload, TrendingUp, RefreshCw } from 'lucide-react';
+import { Search, Upload, TrendingUp, RefreshCw } from 'lucide-react';
 import type { Song } from '../../types';
 
 export function ImportPanel() {

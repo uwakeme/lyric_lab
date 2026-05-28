@@ -8,9 +8,9 @@ const router = Router();
 // Search songs
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const keyword = req.query.keyword as string || '';
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const keyword = (req.query.keyword as string || '').slice(0, 100);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
 
     const songs = await songService.searchSongs(keyword, limit, offset);
@@ -23,7 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -31,7 +31,7 @@ router.get('/', async (req: Request, res: Response) => {
 // Get hot songs
 router.get('/hot', async (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
     const songs = await songService.getHotSongs(limit);
 
     res.json({
@@ -42,7 +42,7 @@ router.get('/hot', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -57,7 +57,6 @@ router.get('/:id', async (req: Request, res: Response) => {
       throw new AppError('Song not found', 404);
     }
 
-    // Format response
     const formatted = {
       id: song.id,
       title: song.title,
@@ -76,7 +75,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -96,24 +95,27 @@ interface SectionData {
 }
 
 function groupLyricsBySection(lyrics: LyricLineData[]) {
-  const sections: Record<string, SectionData> = {};
+  const sectionMap = new Map<number, SectionData>();
 
   for (const line of lyrics) {
-    const key = line.sectionTitle;
-    if (!sections[key]) {
-      sections[key] = {
+    let section = sectionMap.get(line.sectionOrder);
+    if (!section) {
+      section = {
         id: `section-${line.sectionOrder}`,
         title: line.sectionTitle,
         lines: [],
       };
+      sectionMap.set(line.sectionOrder, section);
     }
-    sections[key].lines.push({
+    section.lines.push({
       id: line.id,
       text: line.lineText,
     });
   }
 
-  return Object.values(sections);
+  return Array.from(sectionMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, section]) => section);
 }
 
 export default router;

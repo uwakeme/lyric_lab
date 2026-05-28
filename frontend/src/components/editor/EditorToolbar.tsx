@@ -5,7 +5,7 @@ import { yunmuCategories } from '../../services/rhymeLibrary';
 import { calculateRhymeSuccessRate } from '../../services/rhymeService';
 import { useToast } from '../common/Toast';
 import {
-  Undo2, Redo2, CheckCircle, Settings2, Eye, Save
+  Undo2, Redo2, CheckCircle, Settings2, Eye
 } from 'lucide-react';
 import type { RhymeRule } from '../../types';
 
@@ -52,10 +52,14 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
     }
     checkAllRhymes();
 
-    const allLines = currentSong.lyrics.flatMap(s => s.lines);
+    // Re-read the song after checkAllRhymes updates it
+    const updatedSong = useEditorStore.getState().currentSong;
+    if (!updatedSong) return;
+
+    const allLines = updatedSong.lyrics.flatMap(s => s.lines);
     const results = allLines.map(line => ({
       lineId: line.id,
-      status: line.rhymeStatus || 'unchecked',
+      status: (line.rhymeStatus || 'unchecked') as 'match' | 'mismatch' | 'unchecked',
     }));
     const stats = calculateRhymeSuccessRate(results);
 
@@ -124,7 +128,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
                     押韵规则
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {(['none', 'ping', 'ze'] as const).map(type => (
+                    {(['none', 'ping', 'ze', 'yunmu'] as const).map(type => (
                       <button
                         key={type}
                         onClick={() => handleRhymeTypeChange(type)}
@@ -134,7 +138,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        {type === 'none' ? '无押韵' : type === 'ping' ? '平声尾' : '仄声尾'}
+                        {type === 'none' ? '无押韵' : type === 'ping' ? '平声尾' : type === 'ze' ? '仄声尾' : '指定韵母'}
                       </button>
                     ))}
                   </div>

@@ -31,7 +31,3 @@ export function getCharCountStatus(
   if (count === max) return 'warning';
   return 'ok';
 }
-
-export function formatCharCount(count: number, min: number, max: number): string {
-  return `${count}/${max}`;
-}

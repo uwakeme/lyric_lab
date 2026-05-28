@@ -9,10 +9,6 @@ const CRAWL_SCHEDULE = process.env.CRAWL_INTERVAL || '0 2 * * *';
 export function startCrawlerScheduler() {
   console.log(`Crawler scheduler configured: ${CRAWL_SCHEDULE}`);
 
-  // Run immediately on startup for testing
-  // Comment out in production
-  // runCrawl();
-
   cron.schedule(CRAWL_SCHEDULE, () => {
     runCrawl();
   });
@@ -26,13 +22,18 @@ export async function runCrawl() {
     { name: 'neteaseMusic', fetcher: neteaseMusic.fetchHotSongs },
   ];
 
-  for (const source of sources) {
-    console.log(`Crawling from ${source.name}...`);
-    try {
+  const results = await Promise.allSettled(
+    sources.map(async source => {
+      console.log(`Crawling from ${source.name}...`);
       const result = await crawlerService.crawlFromSource(source.name, source.fetcher);
       console.log(`Crawl result for ${source.name}:`, result);
-    } catch (err) {
-      console.error(`Crawl failed for ${source.name}:`, err);
+      return result;
+    })
+  );
+
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.error('Crawl failed:', result.reason);
     }
   }
 

@@ -4,7 +4,6 @@ import { useEditorStore } from '../../store/editorStore';
 import {
   saveVersion,
   getAllVersions,
-  getVersion,
   deleteVersion,
   saveTempBackup,
 } from '../../services/versionService';
@@ -65,8 +64,6 @@ export function VersionPanel() {
   const [versions, setVersions] = useState<Version[]>([]);
   const [showLabelInput, setShowLabelInput] = useState(false);
   const [label, setLabel] = useState('');
-  const [showCompare, setShowCompare] = useState(false);
-  const [compareVersion, setCompareVersion] = useState<Version | null>(null);
 
   const { currentSong, setCurrentSong } = useEditorStore();
   const { success, warning } = useToast();
@@ -103,7 +100,6 @@ export function VersionPanel() {
     saveTempBackup(currentSong);
     setCurrentSong(version.content);
     success('已恢复到选定版本');
-    setShowCompare(false);
   };
 
   const handleDelete = (id: string) => {
@@ -163,72 +159,6 @@ export function VersionPanel() {
           ))
         )}
       </div>
-
-      {/* Compare Modal */}
-      {showCompare && compareVersion && currentSong && (
-        <div className="modal-overlay" onClick={() => setShowCompare(false)}>
-          <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">版本对比</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-2">当前版本</h4>
-                  <div className="bg-slate-50 rounded-xl p-4 max-h-64 overflow-y-auto">
-                    {currentSong.lyrics.map(section => (
-                      <div key={section.id} className="mb-4 last:mb-0">
-                        <div className="text-xs font-medium text-primary-600 mb-1">
-                          {section.title}
-                        </div>
-                        {section.lines.map((line, i) => (
-                          <div key={line.id} className="text-sm text-slate-700 py-0.5">
-                            {line.text || <span className="text-slate-300">(空行)</span>}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-2">
-                    {compareVersion.label}
-                  </h4>
-                  <div className="bg-slate-50 rounded-xl p-4 max-h-64 overflow-y-auto">
-                    {compareVersion.content.lyrics.map(section => (
-                      <div key={section.id} className="mb-4 last:mb-0">
-                        <div className="text-xs font-medium text-accent-600 mb-1">
-                          {section.title}
-                        </div>
-                        {section.lines.map((line, i) => (
-                          <div key={line.id} className="text-sm text-slate-700 py-0.5">
-                            {line.text || <span className="text-slate-300">(空行)</span>}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  onClick={() => setShowCompare(false)}
-                  className="btn btn-secondary"
-                >
-                  关闭
-                </button>
-                <button
-                  onClick={() => {
-                    handleRestore(compareVersion);
-                    setShowCompare(false);
-                  }}
-                  className="btn btn-primary"
-                >
-                  恢复此版本
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

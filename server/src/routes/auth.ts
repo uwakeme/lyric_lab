@@ -15,6 +15,8 @@ import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // Register
 router.post('/register', async (req: Request, res: Response) => {
   try {
@@ -22,6 +24,10 @@ router.post('/register', async (req: Request, res: Response) => {
 
     if (!email || !password) {
       throw new AppError('Email and password are required', 400);
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      throw new AppError('Invalid email format', 400);
     }
 
     if (password.length < 8) {
@@ -48,7 +54,7 @@ router.post('/register', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -84,7 +90,7 @@ router.post('/login', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -119,7 +125,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -140,7 +146,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });

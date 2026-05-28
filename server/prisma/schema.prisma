@@ -1,4 +1,4 @@
-// Prisma schema for LyricLab
+// Prisma schema for Lyric Lab
 
 generator client {
   provider = "prisma-client-js"

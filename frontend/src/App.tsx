@@ -62,10 +62,10 @@ export default function App() {
               <Music className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
-              LyricLab
+              Lyric Lab
             </h1>
           </div>
-          <span className="hidden sm:inline text-sm text-slate-400">歌词改编工具</span>
+          <span className="hidden sm:inline text-sm text-slate-400">歌词实验室</span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -133,7 +133,7 @@ export default function App() {
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
                     <Music className="w-4 h-4 text-white" />
                   </div>
-                  <span className="font-semibold text-slate-900">LyricLab</span>
+                  <span className="font-semibold text-slate-900">Lyric Lab</span>
                 </div>
                 <button
                   onClick={() => setIsLeftPanelOpen(false)}

@@ -1,8 +1,9 @@
 // Lyric parsing and import service
 import type { Song, LyricSection, LyricLine } from '../types';
+import { countChars } from '../utils/charCount';
 
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
+  return crypto.randomUUID().slice(0, 9);
 }
 
 export function parseLyricText(text: string): LyricSection[] {
@@ -15,19 +16,23 @@ export function parseLyricText(text: string): LyricSection[] {
   for (const line of lines) {
     const trimmed = line.trim();
 
-    // Skip empty lines
     if (!trimmed) continue;
 
-    // Check for section header (e.g., [主歌]、[副歌]、[前奏])
     const sectionMatch = trimmed.match(/^\[(.+?)\]$/);
     if (sectionMatch) {
       // Save previous section if exists
       if (currentSection) {
         currentSection.lines = currentLines;
         sections.push(currentSection);
+      } else if (currentLines.length > 0) {
+        // Lines before first section header -> wrap in default section
+        sections.push({
+          id: generateId(),
+          title: '主歌',
+          lines: currentLines,
+        });
       }
 
-      // Start new section
       currentSection = {
         id: generateId(),
         title: sectionMatch[1],
@@ -37,7 +42,6 @@ export function parseLyricText(text: string): LyricSection[] {
       continue;
     }
 
-    // Regular lyric line
     const lyricLine: LyricLine = {
       id: generateId(),
       text: trimmed,
@@ -64,15 +68,6 @@ export function parseLyricText(text: string): LyricSection[] {
   }
 
   return sections;
-}
-
-function countChars(text: string): number {
-  let count = 0;
-  for (const char of text) {
-    if (/[一-龥]/.test(char)) count++;
-    else if (/[0-9a-zA-Z]/.test(char)) count++;
-  }
-  return count;
 }
 
 export function createEmptySong(): Song {
@@ -114,7 +109,6 @@ export function splitIntoSections(text: string): string[] {
     }
   }
 
-  // Add remaining text
   if (lastIndex < text.length) {
     sections.push(text.slice(lastIndex));
   }

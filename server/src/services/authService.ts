@@ -1,12 +1,17 @@
 // Auth service - password hashing and JWT
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
-const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'default-refresh-secret';
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error('JWT_SECRET and JWT_REFRESH_SECRET environment variables are required');
+}
+
+const _JWT_SECRET: string = JWT_SECRET;
+const _JWT_REFRESH_SECRET: string = JWT_REFRESH_SECRET;
 
 export interface JWTPayload {
   userId: string;
@@ -25,16 +30,16 @@ export async function verifyPassword(
 }
 
 export function generateAccessToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '2h' });
+  return jwt.sign(payload, _JWT_SECRET, { expiresIn: '2h' });
 }
 
 export function generateRefreshToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, _JWT_REFRESH_SECRET, { expiresIn: '7d' });
 }
 
 export function verifyAccessToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, _JWT_SECRET, { algorithms: ['HS256'] }) as unknown as JWTPayload;
   } catch {
     return null;
   }
@@ -42,7 +47,7 @@ export function verifyAccessToken(token: string): JWTPayload | null {
 
 export function verifyRefreshToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_REFRESH_SECRET) as JWTPayload;
+    return jwt.verify(token, _JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as unknown as JWTPayload;
   } catch {
     return null;
   }

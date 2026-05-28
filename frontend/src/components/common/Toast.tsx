@@ -1,5 +1,6 @@
-// Toast notification component - Refined
-import { useEffect, useState, useCallback } from 'react';
+// Toast notification component - Global Zustand store
+import { useEffect, useState } from 'react';
+import { create } from 'zustand';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 export interface Toast {
@@ -7,6 +8,23 @@ export interface Toast {
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
 }
+
+interface ToastStore {
+  toasts: Toast[];
+  addToast: (type: Toast['type'], message: string) => void;
+  dismissToast: (id: string) => void;
+}
+
+export const useToastStore = create<ToastStore>((set) => ({
+  toasts: [],
+  addToast: (type, message) => {
+    const id = crypto.randomUUID().slice(0, 9);
+    set(state => ({ toasts: [...state.toasts, { id, type, message }] }));
+  },
+  dismissToast: (id) => {
+    set(state => ({ toasts: state.toasts.filter(t => t.id !== id) }));
+  },
+}));
 
 interface ToastItemProps {
   toast: Toast;
@@ -84,22 +102,12 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   );
 }
 
-// Hook for managing toasts
+// Hook that reads from the global store
 export function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const addToast = useCallback((type: Toast['type'], message: string) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    setToasts(prev => [...prev, { id, type, message }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
+  const { toasts, addToast, dismissToast } = useToastStore();
 
   return {
     toasts,
-    addToast,
     dismissToast,
     success: (msg: string) => addToast('success', msg),
     error: (msg: string) => addToast('error', msg),

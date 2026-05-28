@@ -1,7 +1,5 @@
 // Song service - database operations for songs
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 export interface SongWithLyrics {
   id: string;
@@ -20,11 +18,14 @@ export interface SongWithLyrics {
 }
 
 export async function searchSongs(keyword: string, limit = 20, offset = 0) {
+  const sanitizedKeyword = keyword.slice(0, 100);
+  const cappedLimit = Math.min(limit, 100);
+
   const songs = await prisma.song.findMany({
     where: {
       OR: [
-        { title: { contains: keyword, mode: 'insensitive' } },
-        { artist: { contains: keyword, mode: 'insensitive' } },
+        { title: { contains: sanitizedKeyword, mode: 'insensitive' } },
+        { artist: { contains: sanitizedKeyword, mode: 'insensitive' } },
       ],
     },
     select: {
@@ -35,7 +36,7 @@ export async function searchSongs(keyword: string, limit = 20, offset = 0) {
       crawledAt: true,
     },
     orderBy: { crawledAt: 'desc' },
-    take: limit,
+    take: cappedLimit,
     skip: offset,
   });
 
@@ -43,6 +44,7 @@ export async function searchSongs(keyword: string, limit = 20, offset = 0) {
 }
 
 export async function getHotSongs(limit = 10) {
+  const cappedLimit = Math.min(limit, 100);
   return prisma.song.findMany({
     select: {
       id: true,
@@ -52,7 +54,7 @@ export async function getHotSongs(limit = 10) {
       crawledAt: true,
     },
     orderBy: { crawledAt: 'desc' },
-    take: limit,
+    take: cappedLimit,
   });
 }
 

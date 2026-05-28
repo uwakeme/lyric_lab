@@ -1,4 +1,4 @@
-// Core types for LyricLab
+// Core types for Lyric Lab
 
 export interface LyricLine {
   id: string;

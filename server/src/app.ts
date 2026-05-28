@@ -6,8 +6,9 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import songRoutes from './routes/songs';
 import versionRoutes from './routes/versions';
+import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
-import { startCrawlerScheduler } from './crawler';
+import { startCrawlerScheduler, triggerManualCrawl } from './crawler';
 
 dotenv.config();
 
@@ -20,7 +21,7 @@ app.use(cors({
   origin: FRONTEND_URL,
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -28,19 +29,18 @@ app.use('/api/songs', songRoutes);
 app.use('/api/versions', versionRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ code: 0, status: 'ok' });
 });
 
-// Crawler routes
-app.post('/api/crawler/trigger', (req, res) => {
-  const { triggerManualCrawl } = require('./crawler');
+// Crawler routes (requires authentication)
+app.post('/api/crawler/trigger', authMiddleware, (_req, res) => {
   triggerManualCrawl()
     .then(() => {
       res.json({ code: 0, message: 'Crawl triggered' });
     })
     .catch(err => {
-      res.status(500).json({ code: 500, message: err.message });
+      res.status(500).json({ code: 500, message: 'Crawl failed' });
     });
 });
 
@@ -50,8 +50,6 @@ app.use(errorHandler);
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-
-  // Start crawler scheduler
   startCrawlerScheduler();
 });
 

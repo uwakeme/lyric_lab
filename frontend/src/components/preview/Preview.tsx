@@ -86,7 +86,7 @@ export function Preview({ onClose }: PreviewProps) {
           {/* Footer */}
           <div className="text-center mt-10">
             <p className={`text-xs ${currentTheme.secondary} opacity-40`}>
-              由 LyricLab 生成
+              由 Lyric Lab 生成
             </p>
           </div>
         </div>

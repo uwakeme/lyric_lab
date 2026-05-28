@@ -1,10 +1,9 @@
 // Version routes for authenticated users
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 
-const prisma = new PrismaClient();
 const router = Router();
 
 router.use(authMiddleware);
@@ -31,7 +30,7 @@ router.get('/', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -41,12 +40,18 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { songId, content, label } = req.body;
 
+    // Validate content size (max 1MB when stringified)
+    const contentStr = JSON.stringify(content);
+    if (contentStr.length > 1_000_000) {
+      throw new AppError('Content too large', 400);
+    }
+
     const version = await prisma.userVersion.create({
       data: {
         userId: req.user!.userId,
         songId: songId || null,
         content,
-        label: label || '未命名版本',
+        label: (typeof label === 'string' ? label.slice(0, 100) : null) || '未命名版本',
       },
     });
 
@@ -58,7 +63,7 @@ router.post('/', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -87,7 +92,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });
@@ -120,7 +125,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const statusCode = (err as AppError).statusCode || 500;
     res.status(statusCode).json({
       code: statusCode,
-      message: (err as Error).message,
+      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
     });
   }
 });

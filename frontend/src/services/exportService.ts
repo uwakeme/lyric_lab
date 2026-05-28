@@ -7,13 +7,6 @@ function generateExportFileName(title: string, format: ExportFormat): string {
   return `${safeTitle}_${date}.${format === 'lrc-simple' ? 'lrc' : format}`;
 }
 
-function formatDateForLRC(): string {
-  const now = new Date();
-  const minutes = Math.floor(now.getTime() / 60000) % 60;
-  const hours = Math.floor(now.getTime() / 3600000);
-  return `${hours.toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
-}
-
 export function exportToTXT(song: Song): void {
   let content = `${song.title} - ${song.artist}\n\n`;
 
@@ -31,7 +24,7 @@ export function exportToTXT(song: Song): void {
 export function exportToLRC(song: Song, withTimestamps: boolean = true): void {
   let content = `[ti:${song.title}]\n`;
   content += `[ar:${song.artist}]\n`;
-  content += `[by:LyricLab]\n`;
+  content += `[by:Lyric Lab]\n`;
   content += `[al:${song.title}]\n\n`;
 
   let timestamp = 0;
@@ -150,7 +143,7 @@ export function exportToHTML(song: Song): void {
         </div>
       `).join('')}
     </div>
-    <div class="footer">由 LyricLab 歌词改编工具生成</div>
+    <div class="footer">由 Lyric Lab 生成</div>
   </div>
 </body>
 </html>`;

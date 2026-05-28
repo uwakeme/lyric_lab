@@ -1,6 +1,6 @@
 // Onboarding overlay component - Refined
 import { useState, useEffect } from 'react';
-import { Rocket, ArrowRight, X } from 'lucide-react';
+import { ArrowRight, X } from 'lucide-react';
 
 interface OnboardingProps {
   onComplete: () => void;

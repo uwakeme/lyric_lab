@@ -1,7 +1,7 @@
 // Editor store using Zustand
 import { create } from 'zustand';
 import type { Song, LyricSection, LyricLine, RhymeRule, EditorCommand } from '../types';
-import { saveAutoSave, loadAutoSave, clearAutoSave } from '../services/versionService';
+import { saveAutoSave, loadAutoSave } from '../services/versionService';
 import { checkRhyme } from '../services/rhymeService';
 import { countChars } from '../utils/charCount';
 
@@ -15,6 +15,7 @@ interface EditorStore {
   charLimit: { min: number; max: number };
   undoStack: EditorCommand[];
   redoStack: EditorCommand[];
+  editVersion: number;
 
   // Actions
   setCurrentSong: (song: Song | null) => void;
@@ -41,25 +42,23 @@ interface EditorStore {
 }
 
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
+  return crypto.randomUUID().slice(0, 9);
 }
 
 function cloneSong(song: Song): Song {
-  return JSON.parse(JSON.stringify(song));
+  return structuredClone(song);
 }
 
-function pushUndo(store: EditorStore, before: Song): void {
+function pushUndo(state: EditorStore, before: Song): Pick<EditorStore, 'undoStack' | 'redoStack'> {
   const cmd: EditorCommand = {
     type: 'text',
     timestamp: Date.now(),
     before,
-    after: cloneSong(store.currentSong!),
+    after: cloneSong(state.currentSong!),
   };
-  store.undoStack.push(cmd);
-  if (store.undoStack.length > 50) {
-    store.undoStack.shift();
-  }
-  store.redoStack = [];
+  const undoStack = [...state.undoStack, cmd];
+  if (undoStack.length > 50) undoStack.shift();
+  return { undoStack, redoStack: [] };
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
@@ -71,13 +70,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   charLimit: { min: 5, max: 10 },
   undoStack: [],
   redoStack: [],
+  editVersion: 0,
 
   setCurrentSong: (song) => set({
-    currentSong: song,
+    currentSong: song ? cloneSong(song) : null,
     selectedSectionId: song?.lyrics[0]?.id || null,
     isDirty: false,
     undoStack: [],
     redoStack: [],
+    editVersion: 0,
   }),
 
   selectSection: (sectionId) => set({ selectedSectionId: sectionId }),
@@ -85,105 +86,130 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   selectLine: (lineId) => set({ selectedLineId: lineId }),
 
   updateLineText: (sectionId, lineId, text, field = 'text') => {
-    const store = get();
-    if (!store.currentSong) return;
+    const state = get();
+    if (!state.currentSong) return;
 
-    const before = cloneSong(store.currentSong);
-    const section = store.currentSong.lyrics.find(s => s.id === sectionId);
-    if (!section) return;
+    const before = cloneSong(state.currentSong);
+    const newLyrics = state.currentSong.lyrics.map(section => {
+      if (section.id !== sectionId) return section;
+      return {
+        ...section,
+        lines: section.lines.map(line => {
+          if (line.id !== lineId) return line;
+          const updated = { ...line };
+          if (field === 'adapted') {
+            updated.adaptedText = text;
+          } else {
+            updated.text = text;
+            updated.charCount = countChars(text);
+          }
+          if (state.rhymeRule.type !== 'none') {
+            const textToCheck = field === 'adapted' ? text : (updated.adaptedText ?? updated.text);
+            const result = checkRhyme(updated, state.rhymeRule, textToCheck);
+            updated.rhymeStatus = result.status;
+          }
+          return updated;
+        }),
+      };
+    });
 
-    const line = section.lines.find(l => l.id === lineId);
-    if (!line) return;
-
-    if (field === 'adapted') {
-      line.adaptedText = text;
-    } else {
-      line.text = text;
-      line.charCount = countChars(text);
-    }
-
-    // Check rhyme if enabled
-    if (store.rhymeRule.type !== 'none') {
-      const textToCheck = field === 'adapted' ? text : (line.adaptedText ?? line.text);
-      const result = checkRhyme(line, store.rhymeRule, textToCheck);
-      line.rhymeStatus = result.status;
-    }
-
-    pushUndo(store, before);
-    set({ isDirty: true });
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
+    set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
+      isDirty: true,
+      editVersion: state.editVersion + 1,
+    });
   },
 
   addSection: (title) => {
-    const store = get();
-    if (!store.currentSong) return;
+    const state = get();
+    if (!state.currentSong) return;
 
-    const before = cloneSong(store.currentSong);
+    const before = cloneSong(state.currentSong);
     const newSection: LyricSection = {
       id: generateId(),
       title,
       lines: [],
     };
-    store.currentSong.lyrics.push(newSection);
+    const newSong = {
+      ...state.currentSong,
+      lyrics: [...state.currentSong.lyrics, newSection],
+    };
 
-    pushUndo(store, before);
-    set({ isDirty: true, selectedSectionId: newSection.id });
+    set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
+      isDirty: true,
+      selectedSectionId: newSection.id,
+      editVersion: state.editVersion + 1,
+    });
   },
 
   deleteSection: (sectionId) => {
-    const store = get();
-    if (!store.currentSong) return;
-    if (store.currentSong.lyrics.length <= 1) return;
+    const state = get();
+    if (!state.currentSong) return;
+    if (state.currentSong.lyrics.length <= 1) return;
 
-    const before = cloneSong(store.currentSong);
-    const index = store.currentSong.lyrics.findIndex(s => s.id === sectionId);
-    if (index === -1) return;
+    const before = cloneSong(state.currentSong);
+    const newLyrics = state.currentSong.lyrics.filter(s => s.id !== sectionId);
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
 
-    store.currentSong.lyrics.splice(index, 1);
-
-    pushUndo(store, before);
     set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
       isDirty: true,
-      selectedSectionId: store.currentSong.lyrics[0]?.id || null,
+      selectedSectionId: newLyrics[0]?.id || null,
+      editVersion: state.editVersion + 1,
     });
   },
 
   moveSection: (sectionId, direction) => {
-    const store = get();
-    if (!store.currentSong) return;
+    const state = get();
+    if (!state.currentSong) return;
 
-    const before = cloneSong(store.currentSong);
-    const index = store.currentSong.lyrics.findIndex(s => s.id === sectionId);
+    const index = state.currentSong.lyrics.findIndex(s => s.id === sectionId);
     if (index === -1) return;
 
     const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= store.currentSong.lyrics.length) return;
+    if (newIndex < 0 || newIndex >= state.currentSong.lyrics.length) return;
 
-    const sections = store.currentSong.lyrics;
-    [sections[index], sections[newIndex]] = [sections[newIndex], sections[index]];
+    const before = cloneSong(state.currentSong);
+    const newLyrics = [...state.currentSong.lyrics];
+    [newLyrics[index], newLyrics[newIndex]] = [newLyrics[newIndex], newLyrics[index]];
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
 
-    pushUndo(store, before);
-    set({ isDirty: true });
+    set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
+      isDirty: true,
+      editVersion: state.editVersion + 1,
+    });
   },
 
   updateSectionTitle: (sectionId, title) => {
-    const store = get();
-    if (!store.currentSong) return;
+    const state = get();
+    if (!state.currentSong) return;
 
-    const section = store.currentSong.lyrics.find(s => s.id === sectionId);
-    if (!section) return;
+    const before = cloneSong(state.currentSong);
+    const newLyrics = state.currentSong.lyrics.map(section =>
+      section.id === sectionId ? { ...section, title } : section
+    );
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
 
-    section.title = title;
-    set({ isDirty: true });
+    set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
+      isDirty: true,
+      editVersion: state.editVersion + 1,
+    });
   },
 
   addLine: (sectionId, afterLineId) => {
-    const store = get();
-    if (!store.currentSong) return;
+    const state = get();
+    if (!state.currentSong) return;
 
-    const before = cloneSong(store.currentSong);
-    const section = store.currentSong.lyrics.find(s => s.id === sectionId);
-    if (!section) return;
-
+    const before = cloneSong(state.currentSong);
     const newLine: LyricLine = {
       id: generateId(),
       text: '',
@@ -191,41 +217,54 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       rhymeStatus: 'unchecked',
     };
 
-    if (afterLineId) {
-      const index = section.lines.findIndex(l => l.id === afterLineId);
-      section.lines.splice(index + 1, 0, newLine);
-    } else {
-      section.lines.push(newLine);
-    }
+    const newLyrics = state.currentSong.lyrics.map(section => {
+      if (section.id !== sectionId) return section;
+      if (afterLineId) {
+        const index = section.lines.findIndex(l => l.id === afterLineId);
+        const newLines = [...section.lines];
+        newLines.splice(index + 1, 0, newLine);
+        return { ...section, lines: newLines };
+      }
+      return { ...section, lines: [...section.lines, newLine] };
+    });
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
 
-    pushUndo(store, before);
-    set({ isDirty: true, selectedLineId: newLine.id });
+    set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
+      isDirty: true,
+      selectedLineId: newLine.id,
+      editVersion: state.editVersion + 1,
+    });
   },
 
   deleteLine: (sectionId, lineId) => {
-    const store = get();
-    if (!store.currentSong) return;
+    const state = get();
+    if (!state.currentSong) return;
 
-    const before = cloneSong(store.currentSong);
-    const section = store.currentSong.lyrics.find(s => s.id === sectionId);
-    if (!section) return;
-    if (section.lines.length <= 1) return;
+    const section = state.currentSong.lyrics.find(s => s.id === sectionId);
+    if (!section || section.lines.length <= 1) return;
 
-    const index = section.lines.findIndex(l => l.id === lineId);
-    if (index === -1) return;
+    const before = cloneSong(state.currentSong);
+    const newLyrics = state.currentSong.lyrics.map(s => {
+      if (s.id !== sectionId) return s;
+      return { ...s, lines: s.lines.filter(l => l.id !== lineId) };
+    });
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
 
-    section.lines.splice(index, 1);
-
-    pushUndo(store, before);
-    set({ isDirty: true });
+    set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
+      isDirty: true,
+      editVersion: state.editVersion + 1,
+    });
   },
 
   moveLine: (sectionId, lineId, direction) => {
-    const store = get();
-    if (!store.currentSong) return;
+    const state = get();
+    if (!state.currentSong) return;
 
-    const before = cloneSong(store.currentSong);
-    const section = store.currentSong.lyrics.find(s => s.id === sectionId);
+    const section = state.currentSong.lyrics.find(s => s.id === sectionId);
     if (!section) return;
 
     const index = section.lines.findIndex(l => l.id === lineId);
@@ -234,90 +273,111 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= section.lines.length) return;
 
-    [section.lines[index], section.lines[newIndex]] = [
-      section.lines[newIndex],
-      section.lines[index],
-    ];
+    const before = cloneSong(state.currentSong);
+    const newLyrics = state.currentSong.lyrics.map(s => {
+      if (s.id !== sectionId) return s;
+      const newLines = [...s.lines];
+      [newLines[index], newLines[newIndex]] = [newLines[newIndex], newLines[index]];
+      return { ...s, lines: newLines };
+    });
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
 
-    pushUndo(store, before);
-    set({ isDirty: true });
+    set({
+      currentSong: newSong,
+      ...pushUndo({ ...state, currentSong: newSong }, before),
+      isDirty: true,
+      editVersion: state.editVersion + 1,
+    });
   },
 
   setRhymeRule: (rule) => {
     set({ rhymeRule: rule });
-    // Re-check all lines
     get().checkAllRhymes();
   },
 
   setCharLimit: (min, max) => set({ charLimit: { min, max } }),
 
   checkLineRhyme: (sectionId, lineId) => {
-    const store = get();
-    if (!store.currentSong) return;
-    if (store.rhymeRule.type === 'none') return;
+    const state = get();
+    if (!state.currentSong) return;
+    if (state.rhymeRule.type === 'none') return;
 
-    const section = store.currentSong.lyrics.find(s => s.id === sectionId);
-    if (!section) return;
+    const newLyrics = state.currentSong.lyrics.map(section => {
+      if (section.id !== sectionId) return section;
+      return {
+        ...section,
+        lines: section.lines.map(line => {
+          if (line.id !== lineId) return line;
+          const textToCheck = line.adaptedText ?? line.text;
+          const result = checkRhyme(line, state.rhymeRule, textToCheck);
+          return { ...line, rhymeStatus: result.status };
+        }),
+      };
+    });
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
 
-    const line = section.lines.find(l => l.id === lineId);
-    if (!line) return;
-
-    const textToCheck = line.adaptedText ?? line.text;
-    const result = checkRhyme(line, store.rhymeRule, textToCheck);
-    line.rhymeStatus = result.status;
-    set({ isDirty: true });
+    set({ currentSong: newSong, isDirty: true });
   },
 
   checkAllRhymes: () => {
-    const store = get();
-    if (!store.currentSong) return;
-    if (store.rhymeRule.type === 'none') return;
+    const state = get();
+    if (!state.currentSong) return;
+    if (state.rhymeRule.type === 'none') return;
 
-    for (const section of store.currentSong.lyrics) {
-      for (const line of section.lines) {
+    const newLyrics = state.currentSong.lyrics.map(section => ({
+      ...section,
+      lines: section.lines.map(line => {
         const textToCheck = line.adaptedText ?? line.text;
-        const result = checkRhyme(line, store.rhymeRule, textToCheck);
-        line.rhymeStatus = result.status;
-      }
-    }
-    set({ isDirty: true });
+        const result = checkRhyme(line, state.rhymeRule, textToCheck);
+        return { ...line, rhymeStatus: result.status };
+      }),
+    }));
+    const newSong = { ...state.currentSong, lyrics: newLyrics };
+
+    set({ currentSong: newSong, isDirty: true });
   },
 
   undo: () => {
-    const store = get();
-    if (store.undoStack.length === 0) return;
-    if (!store.currentSong) return;
+    const state = get();
+    if (state.undoStack.length === 0 || !state.currentSong) return;
 
-    const cmd = store.undoStack.pop()!;
-    store.redoStack.push({
+    const cmd = state.undoStack[state.undoStack.length - 1];
+    const newUndoStack = state.undoStack.slice(0, -1);
+    const redoEntry: EditorCommand = {
       type: 'text',
       timestamp: Date.now(),
-      before: cloneSong(store.currentSong),
+      before: cloneSong(state.currentSong),
       after: cmd.before,
-    });
+    };
 
     set({
-      currentSong: cmd.before,
+      currentSong: cloneSong(cmd.before),
+      undoStack: newUndoStack,
+      redoStack: [...state.redoStack, redoEntry],
       isDirty: true,
+      editVersion: state.editVersion + 1,
     });
   },
 
   redo: () => {
-    const store = get();
-    if (store.redoStack.length === 0) return;
-    if (!store.currentSong) return;
+    const state = get();
+    if (state.redoStack.length === 0 || !state.currentSong) return;
 
-    const cmd = store.redoStack.pop()!;
-    store.undoStack.push({
+    const cmd = state.redoStack[state.redoStack.length - 1];
+    const newRedoStack = state.redoStack.slice(0, -1);
+    const undoEntry: EditorCommand = {
       type: 'text',
       timestamp: Date.now(),
-      before: cloneSong(store.currentSong),
+      before: cloneSong(state.currentSong),
       after: cmd.after,
-    });
+    };
 
     set({
-      currentSong: cmd.after,
+      currentSong: cloneSong(cmd.after),
+      undoStack: [...state.undoStack, undoEntry],
+      redoStack: newRedoStack,
       isDirty: true,
+      editVersion: state.editVersion + 1,
     });
   },
 
@@ -330,12 +390,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     isDirty: false,
     undoStack: [],
     redoStack: [],
+    editVersion: 0,
   }),
 
   autoSave: () => {
-    const store = get();
-    if (store.currentSong && store.isDirty) {
-      saveAutoSave(store.currentSong);
+    const state = get();
+    if (state.currentSong && state.isDirty) {
+      saveAutoSave(state.currentSong);
     }
   },
 
@@ -346,6 +407,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         currentSong: saved.content,
         selectedSectionId: saved.content.lyrics[0]?.id || null,
         isDirty: false,
+        editVersion: 0,
       });
       return true;
     }

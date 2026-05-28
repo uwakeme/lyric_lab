@@ -123,13 +123,19 @@ export async function ensureValidToken(): Promise<string> {
     throw new Error('Not authenticated');
   }
 
+  // Check if token is expired by decoding the payload
   try {
-    // Try to use the token
-    return token;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+      return await refreshAccessToken();
+    }
   } catch {
-    // Try to refresh
+    // Token is malformed, try to refresh
     return await refreshAccessToken();
   }
+
+  return token;
 }
 
 export async function logout(): Promise<void> {

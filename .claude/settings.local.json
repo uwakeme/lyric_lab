@@ -6,7 +6,8 @@
       "Bash(python C:/Users/DELL/.claude/skills/ui-ux-pro-max/scripts/search.py \"lyric editing creative tool\" --design-system -p \"LyricLab\" -f markdown)",
       "Bash(curl -s http://localhost:3001/api/songs/hot)",
       "Bash(npm run *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(curl -s http://localhost:5173)"
     ]
   }
 }

@@ -1,7 +1,5 @@
 // Database seed data - complete lyrics
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 const seedSongs = [
   {
@@ -121,7 +119,7 @@ const seedSongs = [
         sectionTitle: '副歌',
         lines: [
           { lineOrder: 0, lineText: '我绝到永远在每个伸东的梦醒' },
-          { lineOrder: 1, lineText: '分叉路的红绿灯', charCount: 6 },
+          { lineOrder: 1, lineText: '分叉路的红绿灯' },
           { lineOrder: 2, lineText: '口是心非的人群' },
           { lineOrder: 3, lineText: '我在你的周围' },
           { lineOrder: 4, lineText: '贴近你的脸说晚安' },

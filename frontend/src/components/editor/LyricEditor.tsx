@@ -1,5 +1,5 @@
 // Lyric editor component - Character-level editing with box layout
-import { useEffect, useState, useRef, DragEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { countChars } from '../../utils/charCount';
 import { getRhymeTypeLabel } from '../../services/rhymeService';
@@ -11,67 +11,55 @@ interface CharBoxProps {
   char: string;
   isEditable: boolean;
   onChange: (value: string) => void;
-  originalChar?: string;
-  onDragStart?: (e: DragEvent) => void;
-  onDragOver?: (e: DragEvent) => void;
-  onDrop?: (e: DragEvent) => void;
+  onFilled?: () => void;
   isDragging?: boolean;
   dragOverIndex?: number;
   index: number;
+  inputRef?: (el: HTMLInputElement | null) => void;
 }
 
-function CharBox({ char, isEditable, onChange, originalChar, onDragStart, onDragOver, onDrop, isDragging, dragOverIndex, index }: CharBoxProps) {
-  const [value, setValue] = useState(char);
-
-  useEffect(() => {
-    setValue(char);
-  }, [char]);
-
+function CharBox({ char, isEditable, onChange, onFilled, isDragging, dragOverIndex, index, inputRef }: CharBoxProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value.slice(-1);
-    setValue(newValue);
     onChange(newValue);
+    if (newValue && onFilled) {
+      onFilled();
+    }
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
   };
 
   const isHighlighted = dragOverIndex === index;
   const borderColor = isHighlighted
     ? 'border-primary-400 border-dashed'
-    : originalChar && value !== originalChar
-    ? 'border-accent-300'
-    : originalChar
-    ? 'border-slate-200'
-    : 'border-slate-200';
+    : 'border-accent-300';
 
-  const bgColor = originalChar && value !== originalChar
-    ? 'bg-accent-50'
-    : originalChar
-    ? 'bg-slate-50'
-    : 'bg-white';
+  const bgColor = 'bg-accent-50';
 
   return (
     <div
-      draggable={isEditable}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       className={`
         w-10 h-10 flex items-center justify-center
         text-center text-lg font-medium
         border-2 rounded-lg
-        transition-all duration-150 cursor-grab
+        transition-colors duration-150
         ${borderColor} ${bgColor}
         ${isDragging ? 'opacity-50' : ''}
-        ${isEditable ? 'hover:border-primary-300' : 'cursor-default'}
+        ${isEditable ? 'hover:border-primary-300' : ''}
       `}
     >
       <input
+        ref={inputRef}
         type="text"
-        value={value}
+        value={char}
         onChange={handleChange}
+        onFocus={handleFocus}
         maxLength={1}
         className="
           w-full h-full text-center text-lg font-medium bg-transparent
-          focus:outline-none
+          focus:outline-none cursor-text
         "
         disabled={!isEditable}
       />
@@ -80,7 +68,6 @@ function CharBox({ char, isEditable, onChange, originalChar, onDragStart, onDrag
 }
 
 interface LineEditorProps {
-  lineId: string;
   originalText: string;
   adaptedText: string;
   onAdaptedChange: (text: string) => void;
@@ -91,33 +78,13 @@ interface LineEditorProps {
 function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhymeStatus }: LineEditorProps) {
   const originalChars = originalText.split('');
   const adaptedChars = adaptedText ? adaptedText.split('') : [];
+  const [addedBoxes, setAddedBoxes] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-
-  const handleDragStart = (index: number) => (e: DragEvent) => {
-    setDragIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (index: number) => (e: DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverIndex(index);
-  };
-
-  const handleDrop = (dropIndex: number) => (e: DragEvent) => {
-    e.preventDefault();
-    if (dragIndex === null || dragIndex === dropIndex) return;
-
-    const newChars = [...adaptedChars];
-    const [removed] = newChars.splice(dragIndex, 1);
-    newChars.splice(dropIndex, 0, removed);
-    onAdaptedChange(newChars.join(''));
-
-    setDragIndex(null);
-    setDragOverIndex(null);
-  };
+  // Reset added boxes when original text changes
+  useEffect(() => {
+    setAddedBoxes(0);
+  }, [originalText]);
 
   const handleCharChange = (index: number, value: string) => {
     const newChars = [...adaptedChars];
@@ -129,30 +96,27 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   };
 
   const handleAddBox = () => {
-    // Add an empty input box at the end (allows exceeding original word count)
-    const newChars = [...adaptedChars];
-    // Fill intermediate unfilled slots with original chars (gray), 
-    // then append one empty slot at the very end (white)
-    while (newChars.length < originalChars.length) {
-      newChars.push(originalChars[newChars.length]);
-    }
-    newChars.push(' ');
-    onAdaptedChange(newChars.join(''));
+    setAddedBoxes(prev => prev + 1);
   };
 
   const handleRemoveBox = () => {
-    if (adaptedChars.length > 0) {
-      onAdaptedChange(adaptedChars.slice(0, -1).join(''));
+    if (addedBoxes > 0) {
+      setAddedBoxes(prev => prev - 1);
+      // Also trim trailing char if it extends beyond original length
+      if (adaptedChars.length > originalChars.length) {
+        onAdaptedChange(adaptedChars.slice(0, -1).join(''));
+      }
     }
   };
 
   const adaptedCount = countChars(adaptedText);
   const originalCount = countChars(originalText);
+  const totalCount = originalCount + addedBoxes;
   const isOverLimit = adaptedCount > charLimit.max;
   const isUnderLimit = adaptedCount < charLimit.min;
 
-  // One-to-one mapping: same number of boxes as original chars, or more if adapted is longer
-  const maxBoxes = Math.max(originalChars.length, adaptedChars.length);
+  // One-to-one mapping: same number of boxes as original chars, plus any user-added boxes
+  const maxBoxes = Math.max(originalChars.length + addedBoxes, adaptedChars.length);
 
   return (
     <div className="space-y-3">
@@ -184,13 +148,9 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
               index={i}
               char={adaptedChars[i] || ''}
               isEditable={true}
-              originalChar={originalChars[i]}
               onChange={(value) => handleCharChange(i, value)}
-              onDragStart={handleDragStart(i)}
-              onDragOver={handleDragOver(i)}
-              onDrop={handleDrop(i)}
-              isDragging={dragIndex === i}
-              dragOverIndex={dragOverIndex ?? undefined}
+              onFilled={() => inputRefs.current[i + 1]?.focus()}
+              inputRef={(el) => { inputRefs.current[i] = el; }}
             />
           ))}
         </div>
@@ -216,7 +176,7 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
         <span className={`text-xs tabular-nums ${
           isOverLimit ? 'text-error font-medium' : isUnderLimit ? 'text-warning' : 'text-slate-400'
         }`}>
-          {adaptedCount}/{originalCount} 字
+          {adaptedCount}/{totalCount} 字
         </span>
       </div>
     </div>
@@ -239,11 +199,13 @@ export function LyricEditor() {
     moveLine,
   } = useEditorStore();
 
-  const { autoSave } = useEditorStore();
+  const { autoSave, editVersion } = useEditorStore();
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced autosave
+  // Debounced autosave - triggers on editVersion change (immutable updates)
   useEffect(() => {
+    if (editVersion === 0) return;
+
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
@@ -256,7 +218,7 @@ export function LyricEditor() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [currentSong, autoSave]);
+  }, [editVersion, autoSave]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -412,7 +374,6 @@ export function LyricEditor() {
 
                   {/* Line editor */}
                   <LineEditor
-                    lineId={line.id}
                     originalText={line.text}
                     adaptedText={line.adaptedText || ''}
                     onAdaptedChange={(text) => updateLineText(section.id, line.id, text, 'adapted')}

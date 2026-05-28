@@ -1,5 +1,5 @@
 // Song service - handles song search and fallback data
-import type { Song, LyricSection } from '../types';
+import type { Song } from '../types';
 import { parseLyricText } from './lyricService';
 
 const API_BASE = '/api';
@@ -75,7 +75,7 @@ const fallbackSongs: Song[] = [
         id: 's6',
         title: '主歌2',
         lines: [
-          { id: 'l24', text: '我secsflkng', charCount: 10 },
+          { id: 'l24', text: '我接着写把永远爱你写进诗的结尾', charCount: 14 },
           { id: 'l25', text: '我发会儿呆把你的豆腐嘴', charCount: 12 },
           { id: 'l26', text: '你的眼睛水里的棉花糖', charCount: 11 },
           { id: 'l27', text: '嚼着嚼着也会要醉了', charCount: 10 },
@@ -449,7 +449,7 @@ export async function importSongFromText(title: string, text: string): Promise<S
   const lyrics = parseLyricText(text);
 
   return {
-    id: Math.random().toString(36).substr(2, 9),
+    id: crypto.randomUUID().slice(0, 9),
     title,
     artist: '未知艺术家',
     lyrics,
