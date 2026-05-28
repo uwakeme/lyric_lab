@@ -4,7 +4,7 @@ import { useEditorStore } from '../../store/editorStore';
 import { countChars } from '../../utils/charCount';
 import { getRhymeTypeLabel } from '../../services/rhymeService';
 import {
-  Plus, Trash2, ChevronUp, ChevronDown, Music
+  Plus, Trash2, ChevronUp, ChevronDown, Music, RotateCcw
 } from 'lucide-react';
 
 interface CharBoxProps {
@@ -87,7 +87,8 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   }, [originalText]);
 
   const handleCharChange = (index: number, value: string) => {
-    const newChars = [...adaptedChars];
+    const currentAdaptedChars = adaptedText ? adaptedText.split('') : [];
+    const newChars = [...currentAdaptedChars];
     while (newChars.length <= index) {
       newChars.push('');
     }
@@ -107,6 +108,13 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
         onAdaptedChange(adaptedChars.slice(0, -1).join(''));
       }
     }
+  };
+
+  const handleReset = () => {
+    // Blur all inputs first to remove focus from DOM before state reset
+    inputRefs.current.forEach((ref) => { if (ref) ref.blur(); });
+    setAddedBoxes(0);
+    onAdaptedChange('');
   };
 
   const adaptedCount = countChars(adaptedText);
@@ -168,6 +176,13 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
           title="删除字框"
         >
           <Trash2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleReset}
+          className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+          title="重置"
+        >
+          <RotateCcw className="w-4 h-4" />
         </button>
       </div>
 
