@@ -14,13 +14,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      # ========== 前端构建 ==========
+      - name: Setup Node.js for frontend
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      # ========== 前端构建 ==========
       - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm ci
@@ -32,6 +33,13 @@ jobs:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
 
       # ========== 后端构建 ==========
+      - name: Setup Node.js for backend
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
       - name: Install backend dependencies
         working-directory: ./server
         run: npm ci
@@ -68,9 +76,8 @@ jobs:
             cd ${DEPLOY_DIR}/server && pm2 stop lyriclab-server || true
             pm2 delete lyriclab-server || true
 
-            # 上传前端构建产物 (通过 rsync)
+            # 上传前端构建产物
             echo "上传前端文件..."
-            # 前端文件已在 Runner 上构建完成，通过 scp 上传
             rsync -avz --delete \
               -e "ssh -o StrictHostKeyChecking=no" \
               ./frontend/dist/ \
