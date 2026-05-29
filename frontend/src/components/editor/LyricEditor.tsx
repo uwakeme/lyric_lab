@@ -1,4 +1,6 @@
-// Lyric editor component - Character-level editing with box layout
+/**
+ * 歌词编辑器组件 - 逐字符编辑的盒子布局
+ */
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { countChars } from '../../utils/charCount';
@@ -7,18 +9,37 @@ import {
   Plus, Trash2, ChevronUp, ChevronDown, Music, RotateCcw
 } from 'lucide-react';
 
+/**
+ * CharBox 组件属性接口
+ */
 interface CharBoxProps {
+  /** 单个字符 */
   char: string;
+  /** 是否可编辑 */
   isEditable: boolean;
+  /** 字符变化回调 */
   onChange: (value: string) => void;
+  /** 输入完成回调 */
   onFilled?: () => void;
+  /** 是否正在拖拽 */
   isDragging?: boolean;
+  /** 拖拽经过的索引 */
   dragOverIndex?: number;
+  /** 当前字符索引 */
   index: number;
+  /** 输入框引用回调 */
   inputRef?: (el: HTMLInputElement | null) => void;
 }
 
+/**
+ * CharBox 组件 - 单个字符输入框
+ * 用于歌词编辑器中的逐字符编辑
+ */
 function CharBox({ char, isEditable, onChange, onFilled, isDragging, dragOverIndex, index, inputRef }: CharBoxProps) {
+  /**
+   * 处理输入框值变化
+   * 只保留最后一个字符
+   */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value.slice(-1);
     onChange(newValue);
@@ -27,6 +48,10 @@ function CharBox({ char, isEditable, onChange, onFilled, isDragging, dragOverInd
     }
   };
 
+  /**
+   * 处理输入框获得焦点
+   * 全选文本以便直接替换
+   */
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     e.target.select();
   };
@@ -67,25 +92,44 @@ function CharBox({ char, isEditable, onChange, onFilled, isDragging, dragOverInd
   );
 }
 
+/**
+ * LineEditor 组件属性接口
+ */
 interface LineEditorProps {
+  /** 原始歌词文本（参考用） */
   originalText: string;
+  /** 改编后的歌词文本 */
   adaptedText: string;
+  /** 改编文本变化回调 */
   onAdaptedChange: (text: string) => void;
+  /** 字符数限制 */
   charLimit: { min: number; max: number };
+  /** 押韵状态 */
   rhymeStatus?: 'match' | 'mismatch' | 'unchecked';
 }
 
+/**
+ * LineEditor 组件 - 单行歌词编辑器
+ * 显示原词和改编词的逐字符编辑界面
+ */
 function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhymeStatus }: LineEditorProps) {
   const originalChars = originalText.split('');
   const adaptedChars = adaptedText ? adaptedText.split('') : [];
   const [addedBoxes, setAddedBoxes] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Reset added boxes when original text changes
+  /**
+   * 当原词文本变化时，重置添加的字符框数量
+   */
   useEffect(() => {
     setAddedBoxes(0);
   }, [originalText]);
 
+  /**
+   * 处理单个字符变化
+   * @param index 字符索引
+   * @param value 新的字符值
+   */
   const handleCharChange = (index: number, value: string) => {
     const currentAdaptedChars = adaptedText ? adaptedText.split('') : [];
     const newChars = [...currentAdaptedChars];
@@ -96,22 +140,32 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
     onAdaptedChange(newChars.join(''));
   };
 
+  /**
+   * 添加新的字符框
+   */
   const handleAddBox = () => {
     setAddedBoxes(prev => prev + 1);
   };
 
+  /**
+   * 删除最后一个字符框
+   */
   const handleRemoveBox = () => {
     if (addedBoxes > 0) {
       setAddedBoxes(prev => prev - 1);
-      // Also trim trailing char if it extends beyond original length
+      // 如果改编文本超出原词长度，也同时裁剪
       if (adaptedChars.length > originalChars.length) {
         onAdaptedChange(adaptedChars.slice(0, -1).join(''));
       }
     }
   };
 
+  /**
+   * 重置当前行为空
+   * 先取消所有输入框焦点，再清空状态
+   */
   const handleReset = () => {
-    // Blur all inputs first to remove focus from DOM before state reset
+    // 先 blur 所有输入框，避免 DOM 重置时焦点问题
     inputRefs.current.forEach((ref) => { if (ref) ref.blur(); });
     setAddedBoxes(0);
     onAdaptedChange('');
@@ -123,12 +177,12 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   const isOverLimit = adaptedCount > charLimit.max;
   const isUnderLimit = adaptedCount < charLimit.min;
 
-  // One-to-one mapping: same number of boxes as original chars, plus any user-added boxes
+  // 一对一映射：字符框数量等于原词字符数加上用户添加的框
   const maxBoxes = Math.max(originalChars.length + addedBoxes, adaptedChars.length);
 
   return (
     <div className="space-y-3">
-      {/* Original lyrics (reference) */}
+      {/* 原词（参考） */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-400 w-12">原词</span>
         <div className="flex gap-1 flex-wrap">
@@ -143,7 +197,7 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
         </div>
       </div>
 
-      {/* Adapted lyrics (editable) */}
+      {/* 改编歌词（可编辑） */}
       <div className="flex items-center gap-2">
         <div className="w-12 flex items-center">
           {rhymeStatus === 'match' && <div className="w-2 h-2 rounded-full bg-success" title="押韵匹配" />}
@@ -186,7 +240,7 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
         </button>
       </div>
 
-      {/* Char count indicator */}
+      {/* 字符数指示器 */}
       <div className="flex items-center justify-end pr-14">
         <span className={`text-xs tabular-nums ${
           isOverLimit ? 'text-error font-medium' : isUnderLimit ? 'text-warning' : 'text-slate-400'
@@ -198,6 +252,10 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   );
 }
 
+/**
+ * LyricEditor 组件 - 主歌词编辑器
+ * 显示当前歌曲的所有段落和歌词行，提供编辑功能
+ */
 export function LyricEditor() {
   const {
     currentSong,
@@ -217,7 +275,10 @@ export function LyricEditor() {
   const { autoSave, editVersion } = useEditorStore();
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced autosave - triggers on editVersion change (immutable updates)
+  /**
+   * 防抖自动保存
+   * 当 editVersion 变化时触发（不可变更新）
+   */
   useEffect(() => {
     if (editVersion === 0) return;
 
@@ -235,7 +296,11 @@ export function LyricEditor() {
     };
   }, [editVersion, autoSave]);
 
-  // Keyboard shortcuts
+  /**
+   * 键盘快捷键处理
+   * Ctrl/Cmd + Z: 撤销
+   * Ctrl/Cmd + Y: 重做
+   */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -252,6 +317,7 @@ export function LyricEditor() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 无歌曲时显示空状态
   if (!currentSong) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
@@ -270,7 +336,7 @@ export function LyricEditor() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* Header */}
+      {/* 顶部标题栏 */}
       <div className="px-6 py-4 border-b border-slate-100 bg-white/50 backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -293,7 +359,7 @@ export function LyricEditor() {
         </div>
       </div>
 
-      {/* Sections */}
+      {/* 段落列表 */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {currentSong.lyrics.map((section, sectionIndex) => (
           <div
@@ -304,7 +370,7 @@ export function LyricEditor() {
                 : 'hover:shadow-md'
             }`}
           >
-            {/* Section Header */}
+            {/* 段落标题栏 */}
             <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
               <input
                 type="text"
@@ -351,14 +417,14 @@ export function LyricEditor() {
               </div>
             </div>
 
-            {/* Lines */}
+            {/* 歌词行列表 */}
             <div className="space-y-6">
               {section.lines.map((line, lineIndex) => (
                 <div
                   key={line.id}
                   className="group p-3 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  {/* Line number */}
+                  {/* 行号和操作按钮 */}
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xs text-slate-400 w-6">#{lineIndex + 1}</span>
                     <div className="flex-1 h-px bg-slate-100" />
@@ -387,7 +453,7 @@ export function LyricEditor() {
                     </div>
                   </div>
 
-                  {/* Line editor */}
+                  {/* 歌词行编辑器 */}
                   <LineEditor
                     originalText={line.text}
                     adaptedText={line.adaptedText || ''}
@@ -398,7 +464,7 @@ export function LyricEditor() {
                 </div>
               ))}
 
-              {/* Add Line */}
+              {/* 添加歌词行按钮 */}
               <button
                 onClick={() => addLine(section.id)}
                 className="flex items-center justify-center gap-2 w-full p-3 text-sm text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors border-2 border-dashed border-slate-200 hover:border-primary-300"
@@ -410,7 +476,7 @@ export function LyricEditor() {
           </div>
         ))}
 
-        {/* Add Section */}
+        {/* 添加段落按钮 */}
         <button
           onClick={() => addSection('新段落')}
           className="w-full p-5 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/50 transition-all flex flex-col items-center gap-2"
