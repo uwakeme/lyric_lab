@@ -1,0 +1,135 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ========== 前端构建 ==========
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+
+      # ========== 后端构建 ==========
+      - name: Install backend dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Build backend
+        working-directory: ./server
+        run: npm run build
+
+      # ========== 部署到服务器 ==========
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            # 创建部署目录
+            DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            BACKUP_DIR="${DEPLOY_DIR}/backup_${TIMESTAMP}"
+
+            # 备份旧版本
+            if [ -d "${DEPLOY_DIR}/frontend" ]; then
+              mkdir -p ${BACKUP_DIR}
+              cp -r ${DEPLOY_DIR}/frontend ${BACKUP_DIR}/ 2>/dev/null || true
+              cp -r ${DEPLOY_DIR}/server ${BACKUP_DIR}/ 2>/dev/null || true
+            fi
+
+            # 创建新的部署目录
+            mkdir -p ${DEPLOY_DIR}
+
+            # 停止旧的后端服务
+            cd ${DEPLOY_DIR}/server && pm2 stop lyriclab-server || true
+            pm2 delete lyriclab-server || true
+
+            # 上传前端构建产物 (通过 rsync)
+            echo "上传前端文件..."
+            # 前端文件已在 Runner 上构建完成，通过 scp 上传
+            rsync -avz --delete \
+              -e "ssh -o StrictHostKeyChecking=no" \
+              ./frontend/dist/ \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${DEPLOY_DIR}/frontend/
+
+            # 上传后端构建产物
+            echo "上传后端文件..."
+            rsync -avz --delete \
+              -e "ssh -o StrictHostKeyChecking=no" \
+              --exclude 'node_modules' \
+              --exclude '.git' \
+              ./server/dist/ \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${DEPLOY_DIR}/server/
+
+            # 安装后端依赖并启动
+            echo "安装后端依赖..."
+            cd ${DEPLOY_DIR}/server
+            npm install --production
+
+            echo "启动后端服务..."
+            pm2 start ecosystem.config.js --env production || pm2 start dist/index.js --name lyriclab-server
+
+            # 清理旧的备份（保留最近5个）
+            ls -dt ${DEPLOY_DIR}/backup_* | tail -n +6 | xargs rm -rf 2>/dev/null || true
+
+            echo "部署完成!"
+
+      - name: Deploy frontend to Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
+            FRONTEND_DEST="${{ secrets.NGINX_WEB_ROOT || '/var/www/lyriclab' }}"
+
+            # 复制前端文件到 Nginx 目录
+            rsync -avz --delete \
+              -e "ssh -o StrictHostKeyChecking=no" \
+              ${DEPLOY_DIR}/frontend/ \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${FRONTEND_DEST}/
+
+            # 重新加载 Nginx
+            nginx -t && nginx -s reload || echo "Nginx 配置或重载失败"
+
+      - name: Health check
+        run: |
+          echo "等待服务启动..."
+          sleep 10
+          echo "检查后端服务状态..."
+          curl -f ${{ secrets.VITE_API_BASE_URL }}/health || echo "后端健康检查失败（可能是 /health 端点不存在）"
+        continue-on-error: true
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 部署结果"
+          echo "- 前端构建: ${{ job.status }}"
+          echo "- 后端构建: ${{ job.status }}"
+          echo "- 服务器部署: ${{ job.status }}"

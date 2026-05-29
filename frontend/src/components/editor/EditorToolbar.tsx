@@ -1,4 +1,7 @@
-// Editor toolbar with refined styling
+/**
+ * 编辑器工具栏组件
+ * 提供撤销/重做、押韵检查、设置和预览功能
+ */
 import { useState } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { yunmuCategories } from '../../services/rhymeLibrary';
@@ -10,9 +13,14 @@ import {
 import type { RhymeRule } from '../../types';
 
 interface EditorToolbarProps {
+  /** 预览按钮回调 */
   onPreview: () => void;
 }
 
+/**
+ * EditorToolbar 组件 - 编辑器工具栏
+ * 包含撤销/重做、押韵检查、设置和预览按钮
+ */
 export function EditorToolbar({ onPreview }: EditorToolbarProps) {
   const [showSettings, setShowSettings] = useState(false);
   const {
@@ -29,6 +37,10 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
   } = useEditorStore();
   const { success, warning } = useToast();
 
+  /**
+   * 处理押韵类型变化
+   * @param type 押韵规则类型
+   */
   const handleRhymeTypeChange = (type: RhymeRule['type']) => {
     if (type === 'none') {
       setRhymeRule({ type: 'none' });
@@ -41,10 +53,18 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
     }
   };
 
+  /**
+   * 处理韵母选择变化
+   * @param value 韵母值
+   */
   const handleYunmuChange = (value: string) => {
     setRhymeRule({ type: 'yunmu', value });
   };
 
+  /**
+   * 处理全篇押韵检查
+   * 检查所有歌词行的押韵情况并显示统计结果
+   */
   const handleCheckAll = () => {
     if (!currentSong) {
       warning('请先加载歌词');
@@ -52,7 +72,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
     }
     checkAllRhymes();
 
-    // Re-read the song after checkAllRhymes updates it
+    // 检查完成后重新读取歌曲数据
     const updatedSong = useEditorStore.getState().currentSong;
     if (!updatedSong) return;
 
@@ -72,7 +92,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-white/80 backdrop-blur-sm">
-      {/* Left side - Undo/Redo */}
+      {/* 左侧 - 撤销/重做 */}
       <div className="flex items-center gap-1">
         <button
           onClick={undo}
@@ -102,7 +122,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
         </button>
       </div>
 
-      {/* Center - Settings */}
+      {/* 中间 - 设置 */}
       <div className="relative">
         <button
           onClick={() => setShowSettings(!showSettings)}
@@ -114,15 +134,15 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
 
         {showSettings && (
           <>
-            {/* Backdrop */}
+            {/* 遮罩层 */}
             <div
               className="fixed inset-0 z-10"
               onClick={() => setShowSettings(false)}
             />
-            {/* Dropdown */}
+            {/* 下拉菜单 */}
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden">
               <div className="p-4 space-y-5">
-                {/* Rhyme Settings */}
+                {/* 押韵设置 */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     押韵规则
@@ -144,7 +164,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
                   </div>
                 </div>
 
-                {/* Yunmu Selector */}
+                {/* 韵母选择器 */}
                 {rhymeRule.type === 'yunmu' && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -168,7 +188,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
                   </div>
                 )}
 
-                {/* Char Limit */}
+                {/* 字数限制 */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     字数限制
@@ -200,7 +220,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
         )}
       </div>
 
-      {/* Right side - Preview */}
+      {/* 右侧 - 预览 */}
       <div className="flex items-center gap-2">
         <button
           onClick={onPreview}
