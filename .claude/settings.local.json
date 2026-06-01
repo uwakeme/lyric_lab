@@ -14,7 +14,12 @@
       "Bash(git commit *)",
       "mcp__fetch__fetch",
       "Skill(browser-use)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(node -e ' *)",
+      "Bash(npx --yes js-yaml .github/workflows/deploy.yml)",
+      "Bash(npx --yes -p js-yaml -- node -e ' *)",
+      "Bash(npm exec *)",
+      "Bash(npx js-yaml *)"
     ]
   }
 }

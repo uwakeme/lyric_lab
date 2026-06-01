@@ -68,9 +68,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           envs: PATH
-        env:
-          PATH: "/home/ubuntu/.nvm/versions/node/v26.2.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-        script: |
+          script: |
             set -e
             DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
@@ -96,6 +94,8 @@ jobs:
             pm2 start ecosystem.config.js --env production 2>/dev/null || pm2 start dist/index.js --name lyriclab-server
 
             echo "部署完成!"
+        env:
+          PATH: "/home/ubuntu/.nvm/versions/node/v26.2.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
       - name: Deploy frontend to Nginx
         uses: appleboy/ssh-action@v1.0.3
