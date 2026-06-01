@@ -58,7 +58,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
           scp -o StrictHostKeyChecking=no -i /tmp/deploy_key -P ${{ secrets.SERVER_PORT || 22 }} -r ./frontend/dist/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/frontend/
-          scp -o StrictHostKeyChecking=no -i /tmp/deploy_key -P ${{ secrets.SERVER_PORT || 22 }} -r ./server/dist/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/server/
+          scp -o StrictHostKeyChecking=no -i /tmp/deploy_key -P ${{ secrets.SERVER_PORT || 22 }} -r ./server/dist/* ./server/package.json ./server/package-lock.json ./server/prisma ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/server/
 
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -94,6 +94,8 @@ jobs:
             echo "安装后端依赖..."
             cd ${DEPLOY_DIR}/server
             npm install --production
+            npx prisma generate
+            npx prisma migrate deploy
 
             echo "启动后端服务..."
             # --cwd 必须显式指定到 server 目录，否则 require('./routes/auth') 会从错的目录解析
