@@ -2,7 +2,8 @@
  * 编辑器工具栏组件
  * 提供撤销/重做、押韵检查、设置和预览功能
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditorStore } from '../../store/editorStore';
 import { yunmuCategories } from '../../services/rhymeLibrary';
 import { calculateRhymeSuccessRate } from '../../services/rhymeService';
@@ -23,6 +24,8 @@ interface EditorToolbarProps {
  */
 export function EditorToolbar({ onPreview }: EditorToolbarProps) {
   const [showSettings, setShowSettings] = useState(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const {
     currentSong,
     rhymeRule,
@@ -36,6 +39,15 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
     redo,
   } = useEditorStore();
   const { success, warning } = useToast();
+
+  useEffect(() => {
+    if (!showSettings || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setMenuPos({
+      top: rect.bottom + 8,
+      left: rect.left + rect.width / 2,
+    });
+  }, [showSettings]);
 
   /**
    * 处理押韵类型变化
@@ -123,7 +135,7 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
       </div>
 
       {/* 中间 - 设置 */}
-      <div className="relative">
+      <div className="relative" ref={buttonRef}>
         <button
           onClick={() => setShowSettings(!showSettings)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 text-sm text-slate-600 transition-colors"
@@ -132,15 +144,18 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
           <span className="hidden sm:inline">设置</span>
         </button>
 
-        {showSettings && (
+        {showSettings && menuPos && createPortal(
           <>
             {/* 遮罩层 */}
             <div
-              className="fixed inset-0 z-10"
+              className="fixed inset-0 z-40"
               onClick={() => setShowSettings(false)}
             />
             {/* 下拉菜单 */}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden">
+            <div
+              className="fixed w-80 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden"
+              style={{ top: menuPos.top, left: menuPos.left, transform: 'translateX(-50%)' }}
+            >
               <div className="p-4 space-y-5">
                 {/* 押韵设置 */}
                 <div>
@@ -216,7 +231,8 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
                 </div>
               </div>
             </div>
-          </>
+          </>,
+          document.body
         )}
       </div>
 
