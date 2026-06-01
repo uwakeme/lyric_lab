@@ -107,10 +107,16 @@ jobs:
           script: |
             set -e
             DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
-            FRONTEND_DEST="${{ secrets.NGINX_WEB_ROOT || '/var/www/lyriclab' }}"
+            FRONTEND_DEST="${{ secrets.NGINX_WEB_ROOT || '/var/www/html' }}"
 
-            echo "复制前端文件到 Nginx 目录..."
-            cp -r ${DEPLOY_DIR}/frontend/* ${FRONTEND_DEST}/
+            echo "复制前端文件到 Nginx 目录 (${DEPLOY_DIR}/frontend -> ${FRONTEND_DEST})..."
+            # 源和目标相同时跳过（避免 cp 把目录拷进自己）
+            if [ "${DEPLOY_DIR}/frontend" = "${FRONTEND_DEST}" ]; then
+              echo "源与目标相同，跳过复制"
+            else
+              mkdir -p ${FRONTEND_DEST}
+              cp -r ${DEPLOY_DIR}/frontend/. ${FRONTEND_DEST}/
+            fi
 
             echo "重新加载 Nginx..."
             nginx -t && nginx -s reload || echo "Nginx 配置或重载失败"
