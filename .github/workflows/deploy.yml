@@ -83,15 +83,22 @@ jobs:
             fi
 
             echo "停止旧的后端服务..."
-            cd ${DEPLOY_DIR}/server && pm2 stop lyriclab-server 2>/dev/null || true
-            pm2 delete lyriclab-server 2>/dev/null || true
+            # 只清理本项目（名字以 lyriclab 开头）的 pm2 进程，不影响其他项目
+            pm2 jlist 2>/dev/null | grep -oE '"name"[[:space:]]*:[[:space:]]*"[^"]*"' \
+              | grep -E '"lyriclab' \
+              | sed -E 's/.*"name"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/' \
+              | sort -u | while read -r name; do
+                [ -n "$name" ] && pm2 delete "$name" 2>/dev/null || true
+              done
 
             echo "安装后端依赖..."
             cd ${DEPLOY_DIR}/server
             npm install --production
 
             echo "启动后端服务..."
+            # --cwd 必须显式指定到 server 目录，否则 require('./routes/auth') 会从错的目录解析
             pm2 start app.js --name lyriclab-server --interpreter node --cwd ${DEPLOY_DIR}/server
+            pm2 save
 
             echo "部署完成!"
         env:
