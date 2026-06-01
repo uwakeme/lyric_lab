@@ -7,7 +7,7 @@ import { Onboarding } from './components/common/Onboarding';
 import { ImportPanel } from './components/import/ImportPanel';
 import { ExportPanel } from './components/export/ExportPanel';
 import { VersionPanel } from './components/version/VersionPanel';
-import { LyricEditor, RhymePanel, EditorToolbar } from './components/editor/index';
+import { LyricEditor, RhymePanel, EditorToolbar, LyricOverview } from './components/editor/index';
 import { Preview } from './components/preview/Preview';
 import { UserAvatar } from './components/auth/UserAvatar';
 import { AuthModal } from './components/auth/AuthModal';
@@ -204,8 +204,13 @@ export default function App() {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="animate-fade-in">
-              {rightTab === 'rhyme' && <RhymePanel />}
+            <div className="animate-fade-in space-y-4">
+              {rightTab === 'rhyme' && (
+                <>
+                  <LyricOverview />
+                  <RhymePanel />
+                </>
+              )}
               {rightTab === 'preview' && currentSong && (
                 <Preview onClose={() => setRightTab('rhyme')} />
               )}
