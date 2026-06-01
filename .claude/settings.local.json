@@ -11,7 +11,9 @@
       "Bash(git remote *)",
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "mcp__fetch__fetch",
+      "Skill(browser-use)"
     ]
   }
 }

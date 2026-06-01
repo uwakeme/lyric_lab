@@ -1,7 +1,7 @@
 /**
  * 歌词编辑器组件 - 逐字符编辑的盒子布局
  */
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { countChars } from '../../utils/charCount';
 import { getRhymeTypeLabel } from '../../services/rhymeService';
@@ -35,7 +35,7 @@ interface CharBoxProps {
  * CharBox 组件 - 单个字符输入框
  * 用于歌词编辑器中的逐字符编辑
  */
-function CharBox({ char, isEditable, onChange, onFilled, isDragging, dragOverIndex, index, inputRef }: CharBoxProps) {
+const CharBox = React.memo(function CharBox({ char, isEditable, onChange, onFilled, isDragging, dragOverIndex, index, inputRef }: CharBoxProps) {
   /**
    * 处理输入框值变化
    * 只保留最后一个字符
@@ -90,7 +90,7 @@ function CharBox({ char, isEditable, onChange, onFilled, isDragging, dragOverInd
       />
     </div>
   );
-}
+});
 
 /**
  * LineEditor 组件属性接口
@@ -116,7 +116,25 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   const originalChars = originalText.split('');
   const adaptedChars = adaptedText ? adaptedText.split('') : [];
   const [addedBoxes, setAddedBoxes] = useState(0);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // 用 Map 存 ref：键是 index，值是 input 元素。Map 在 cleanup 时删除 key，避免数组的"残留旧引用"问题。
+  const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+  // 每个 index 对应一个稳定的 ref 回调，避免每次 render 重建函数 ref 导致 React 反复"null → element"切换
+  const refCallbackCache = useRef<Map<number, (el: HTMLInputElement | null) => void>>(new Map());
+  const getInputRef = (index: number) => {
+    const cache = refCallbackCache.current;
+    let cb = cache.get(index);
+    if (!cb) {
+      cb = (el) => {
+        if (el) {
+          inputRefs.current.set(index, el);
+        } else {
+          inputRefs.current.delete(index);
+        }
+      };
+      cache.set(index, cb);
+    }
+    return cb;
+  };
 
   /**
    * 当原词文本变化时，重置添加的字符框数量
@@ -124,6 +142,16 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   useEffect(() => {
     setAddedBoxes(0);
   }, [originalText]);
+
+  /**
+   * 卸载时清理 ref 缓存
+   */
+  useEffect(() => {
+    return () => {
+      inputRefs.current.clear();
+      refCallbackCache.current.clear();
+    };
+  }, []);
 
   /**
    * 处理单个字符变化
@@ -138,6 +166,18 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
     }
     newChars[index] = value;
     onAdaptedChange(newChars.join(''));
+  };
+
+  /**
+   * 输入完成后跳转到下一个输入框
+   * 下一个框已经有字时也直接 focus，maxLength={1} 会让用户输入覆盖
+   */
+  const focusNextInput = (index: number) => {
+    const next = inputRefs.current.get(index + 1);
+    if (next) {
+      next.focus();
+      next.select();
+    }
   };
 
   /**
@@ -166,7 +206,7 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
    */
   const handleReset = () => {
     // 先 blur 所有输入框，避免 DOM 重置时焦点问题
-    inputRefs.current.forEach((ref) => { if (ref) ref.blur(); });
+    inputRefs.current.forEach((ref) => ref.blur());
     setAddedBoxes(0);
     onAdaptedChange('');
   };
@@ -211,8 +251,8 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
               char={adaptedChars[i] || ''}
               isEditable={true}
               onChange={(value) => handleCharChange(i, value)}
-              onFilled={() => inputRefs.current[i + 1]?.focus()}
-              inputRef={(el) => { inputRefs.current[i] = el; }}
+              onFilled={() => focusNextInput(i)}
+              inputRef={getInputRef(i)}
             />
           ))}
         </div>

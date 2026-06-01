@@ -4,73 +4,137 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-LyricLab is a full-stack lyric adaptation web application with a React frontend and Express/Prisma backend. Users can import songs, edit lyrics character-by-character with rhyme detection, manage versions, and export in multiple formats.
+LyricLab is a full-stack lyric adaptation web application. Users import songs, edit lyrics character-by-character with rhyme detection, manage versions, and export in multiple formats.
+
+Monorepo with two independent packages (no monorepo tool) — each has its own `package.json` and `node_modules`:
+- `frontend/` — React 18 + Vite + Zustand + Tailwind CSS
+- `server/` — Express + TypeScript + Prisma ORM + PostgreSQL
 
 ## Development Commands
 
-### Frontend (E:/projects/LyricLab/frontend)
+### Frontend (`frontend/`)
 ```bash
-npm run dev      # Start dev server on http://localhost:5173
-npm run build    # Build for production
+npm run dev       # Dev server at http://localhost:5173
+npm run build     # tsc && vite build
+npm run preview   # Preview production build
 ```
+Vite proxies `/api` → `http://localhost:3001` (no CORS issues in dev).
 
-### Backend (E:/projects/LyricLab/server)
+### Backend (`server/`)
 ```bash
-npm run dev          # Start dev server with tsx watch on http://localhost:3001
-npm run build        # Compile TypeScript
-npx prisma migrate dev   # Run database migrations
-npx tsx src/db/seed.ts   # Seed database with sample data
+npm run dev         # tsx watch src/app.ts on :3001
+npm run build       # tsc → dist/
+npm run start       # node dist/app.js (production)
+npm run db:migrate  # prisma migrate dev
+npm run db:seed     # tsx src/db/seed.ts (optional sample data)
 ```
+**Order matters on first run**: `db:migrate` → start server.
+
+### Database
+PostgreSQL 14. Use the included `docker-compose.yml` (db: `lyric_lab`, user/pass: `postgres`/`123456`), or any local Postgres. Configure `server/.env` from `.env.example` (the included `.env` is committed and points at the docker-compose default).
+
+## Module Systems
+
+| Package  | Module system | tsconfig `module` |
+|----------|---------------|-------------------|
+| frontend | ESM (`"type": "module"`) | `ESNext` |
+| server   | CommonJS (default) | `CommonJS` |
+
+**Do not mix ESM/CJS syntax between packages.** Backend uses `require()`-style imports under the hood (`tsx` handles it).
+
+## TypeScript Quirks
+
+### Frontend
+- `@/` path alias maps to `src/` (configured in both `vite.config.ts` and `tsconfig.json`). **Always use `@/` imports** — never relative paths like `../../services/`.
+- `noUnusedLocals: true`, `noUnusedParameters: true` — TS6133 errors **fail the build**. Clean up unused imports/vars as you go.
+- Strict mode enabled.
+
+### Backend
+- Standard CommonJS TypeScript. No path aliases.
 
 ## Architecture
 
-### Frontend Structure
+### Frontend (`frontend/src/`)
+- **State**: Zustand stores — `store/editorStore.ts` (editor, undo/redo) and `store/authStore.ts` (auth).
+- **Services**: `services/*.ts` handles all API calls. **Components never call `fetch` directly.**
+- **Editor**: Character-level — `CharBox` (single char input + drag-drop) inside `LineEditor` in `components/editor/LyricEditor.tsx`.
+- **Components**: grouped by feature — `editor/`, `import/`, `export/`, `version/`, `preview/`, `auth/`, `common/`.
+- **Types**: shared interfaces in `types.ts` (`Song`, `LyricLine`, `LyricSection`).
 
-- **State Management**: Zustand store (`src/store/editorStore.ts`) manages the current song, selected section/line, rhyme rules, char limits, and undo/redo stacks.
-- **Services Layer**: `src/services/*.ts` handles API calls to backend, pinyin/rhyme logic, and version persistence.
-- **Character-level Editor**: `src/components/editor/LyricEditor.tsx` contains `CharBox` (single character input with drag-drop) and `LineEditor` (one-to-one mapping between original and adapted chars).
+### Backend (`server/src/`)
+- `routes/` — Express route handlers (auth, songs, versions)
+- `services/` — Business logic
+- `middleware/` — Auth middleware (JWT)
+- `crawler/` — Scheduled lyric crawling (scheduled on boot, `node-cron`, default daily 2 AM via `CRAWL_INTERVAL` env)
+- `db/` — Prisma schema and seed data
+- `lib/` — Shared utilities (e.g. `AppError`, `apiResponse`)
 
-### Data Model
+## Data Model
 
 `LyricLine` has two text fields:
 - `text` — original lyrics (read-only reference)
 - `adaptedText` — user's adapted lyrics (editable, stored separately)
 
-Rhyme detection runs against `adaptedText` when present, falling back to `text`.
+**Always use `adaptedText` for user edits.** Rhyme detection and character counting run against `adaptedText` when present, falling back to `text` (i.e. `line.adaptedText ?? line.text`).
 
-### Backend Structure
+Schema: `server/prisma/schema.prisma` (User, Song, Lyric, Version). Prisma migrations are gitignored — always regenerate via `npx prisma migrate dev`.
 
-- `src/routes/` — Express route handlers (auth, songs, versions)
-- `src/services/` — Business logic
-- `src/middleware/` — Auth middleware (JWT verification)
-- `src/crawler/` — Scheduled lyric crawling (预留接口)
-- `src/db/` — Prisma schema and seed data
+## Rhyme Detection
 
-### Rhyme Detection
-
-Uses `pinyin-pro` library. The `rhymeService.ts` exports:
+Uses `pinyin-pro` library. Key functions in `frontend/src/services/rhymeService.ts`:
 - `checkRhyme(line, rule, textToCheck?)` — checks last character against rule
-- `getLastCharPinyin(text)` — extracts pinyin from text's final character
-- `extractYunmu/isPing/isZe` — categorize pinyin properties
+- `getLastCharPinyin(text)` — extracts pinyin from final character
+- `extractYunmu`, `isPing`, `isZe` — categorize pinyin properties
 
-Supported rules: `none`, `yunmu` (specific final vowel), `ping` (tones 1-2), `ze` (tones 3-4).
+Rules: `none` | `yunmu` (specify value like `"ang"`) | `ping` (tones 1-2) | `ze` (tones 3-4).
 
-### Z-Index Stacking
+Rhyme word library at `frontend/src/services/rhymeLibrary.ts` — 6 yunmu categories (ang, i, u, ai, ei, ou), ~10 words each.
 
-Fixed elements use z-index scale: modal `[60]`, onboarding `[55]`, toast `[50]`. When adding new overlays, ensure proper stacking.
+## Character Counting
 
-### Key Files
+`frontend/src/utils/charCount.ts`: Chinese chars, numbers, English letters → 1 each. Punctuation → 0.
 
-| File | Purpose |
-|------|---------|
-| `frontend/src/store/editorStore.ts` | Central Zustand store for editor state |
-| `frontend/src/types.ts` | Shared TypeScript interfaces (Song, LyricLine, LyricSection) |
-| `frontend/src/services/rhymeService.ts` | Rhyme detection logic |
-| `frontend/src/components/editor/LyricEditor.tsx` | Character-level editing UI |
-| `server/prisma/schema.prisma` | Database schema (User, Song, Lyric, Version) |
+## Editor Persistence & Auth
+
+- **Undo/redo**: Stack capped at **50 entries** in `editorStore`.
+- **Auto-save**: Debounced 2s, key `lyriclab_autosave` in localStorage.
+- **Auth tokens**: In localStorage (`lyriclab_access_token`, `lyriclab_refresh_token`, `lyriclab_user`) — **NOT httpOnly cookies**.
+- **Offline mode**: 12 fallback songs hardcoded in `services/songService.ts`; editor fully works without backend.
+
+## Z-Index Stacking
+
+| Element | Z-index |
+|---------|---------|
+| Modal   | 60      |
+| Onboarding | 55   |
+| Toast   | 50      |
+| Mobile nav | 30  |
+| Header  | 20      |
+
+## API Conventions (server)
+
+Response format:
+```json
+// Success
+{ "code": 0, "data": { ... } }
+// Error
+{ "code": 400, "message": "..." }
+```
+
+Error handling: `AppError` class (extends Error with `statusCode`) thrown anywhere → global error middleware catches it.
+
+Auth middleware: `authMiddleware` (required) and `optionalAuthMiddleware` (attaches `req.user` if token present, continues otherwise). Both parse `Authorization: Bearer <token>`.
+
+## Tailwind
+
+Custom theme: `primary-50..900` (blue slate) + `accent-50..900` (purple). Fonts: Inter (sans) + JetBrains Mono (mono). Custom animations `fade-in`/`slide-in`/`scale-in` defined in `tailwind.config.js`. **Avoid adding `animate-scale-in`/`animate-fade-in` to dropdown containers** — known animation issues.
+
+## No Tests
+
+Zero test files, no Jest/Vitest config. Do not look for test runners or suggest adding tests unless asked.
 
 ## Notes
 
-- The `LyricLine.adaptedText` field was added to separate original from adapted lyrics — always use this field for user's edits.
-- The editor toolbar settings dropdown had animation issues fixed by removing `animate-scale-in`/`animate-fade-in` from the dropdown container.
-- TypeScript errors about unused variables (`TS6133`) are non-blocking warnings from `noUnusedLocals`/`noUnusedParameters` config — they're being cleaned up progressively.
+- Server starts the crawler scheduler on boot. Disable by unsetting `CRAWL_INTERVAL` or commenting out the boot call in `src/app.ts`.
+- `.env` files are gitignored but a working `.env` is committed pointing at the docker-compose database.
+- `dist/`, `node_modules/`, and `prisma/migrations/` are gitignored.
