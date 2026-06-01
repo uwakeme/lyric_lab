@@ -91,7 +91,7 @@ jobs:
             npm install --production
 
             echo "启动后端服务..."
-            pm2 start ecosystem.config.js --env production 2>/dev/null || pm2 start dist/index.js --name lyriclab-server
+            pm2 start dist/app.js --name lyriclab-server --interpreter node --cwd ${DEPLOY_DIR}/server
 
             echo "部署完成!"
         env:
