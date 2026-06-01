@@ -126,7 +126,18 @@ jobs:
           echo "等待服务启动..."
           sleep 10
           echo "检查后端服务状态..."
-          curl -f ${{ secrets.VITE_API_BASE_URL }}/health || echo "后端健康检查失败（可能是 /health 端点不存在）"
+          # -s 静默（不打进度条）
+          # --connect-timeout 5：5 秒内连不上就放弃
+          # --max-time 15：整个请求最多 15 秒
+          # -w 打印 HTTP 状态码，-o /dev/null 丢掉 body
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --connect-timeout 5 --max-time 15 \
+            "${{ secrets.VITE_API_BASE_URL }}/health" || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✓ 后端健康检查通过 (HTTP $HTTP_CODE)"
+          else
+            echo "✗ 后端健康检查失败 (HTTP $HTTP_CODE) — /health 端点可能不存在"
+          fi
         continue-on-error: true
 
       - name: Summary

@@ -174,7 +174,7 @@ export default function App() {
 
         {/* Center - Editor */}
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-          <EditorToolbar onPreview={() => setShowPreview(true)} />
+          <EditorToolbar />
           <LyricEditor />
         </div>
 

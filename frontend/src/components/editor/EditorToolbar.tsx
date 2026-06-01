@@ -9,20 +9,15 @@ import { yunmuCategories } from '../../services/rhymeLibrary';
 import { calculateRhymeSuccessRate } from '../../services/rhymeService';
 import { useToast } from '../common/Toast';
 import {
-  Undo2, Redo2, CheckCircle, Settings2, Eye
+  Undo2, Redo2, CheckCircle, Settings2
 } from 'lucide-react';
 import type { RhymeRule } from '../../types';
 
-interface EditorToolbarProps {
-  /** 预览按钮回调 */
-  onPreview: () => void;
-}
-
 /**
  * EditorToolbar 组件 - 编辑器工具栏
- * 包含撤销/重做、押韵检查、设置和预览按钮
+ * 包含撤销/重做、押韵检查和设置按钮
  */
-export function EditorToolbar({ onPreview }: EditorToolbarProps) {
+export function EditorToolbar() {
   const [showSettings, setShowSettings] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -234,18 +229,6 @@ export function EditorToolbar({ onPreview }: EditorToolbarProps) {
           </>,
           document.body
         )}
-      </div>
-
-      {/* 右侧 - 预览 */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onPreview}
-          disabled={!currentSong}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm hover:shadow-md"
-        >
-          <Eye className="w-4 h-4" />
-          <span className="hidden sm:inline">预览</span>
-        </button>
       </div>
     </div>
   );
