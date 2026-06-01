@@ -67,9 +67,10 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          env:
-            PATH: "/home/ubuntu/.nvm/versions/node/v26.2.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-          script: |
+          envs: PATH
+        env:
+          PATH: "/home/ubuntu/.nvm/versions/node/v26.2.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        script: |
             set -e
             DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
