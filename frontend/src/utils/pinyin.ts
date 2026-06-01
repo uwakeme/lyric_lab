@@ -43,7 +43,9 @@ export function isZe(pinyin: PinyinResult): boolean {
 }
 
 export function getLastCharPinyin(text: string): PinyinResult | null {
-  const lastChar = text.trim().slice(-1);
+  // 去掉零宽空格占位符（U+200B），避免它们被当作"最后一个字符"
+  const cleaned = text.replace(/​/g, '');
+  const lastChar = cleaned.trim().slice(-1);
   if (!lastChar) return null;
 
   // Check if it's a Chinese character

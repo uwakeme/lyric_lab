@@ -25,7 +25,8 @@ export function checkRhyme(
     return result;
   }
 
-  const text = textToCheck ?? line.adaptedText ?? line.text;
+  // 去掉零宽空格占位符（U+200B），避免影响押韵检测
+  const text = (textToCheck ?? line.adaptedText ?? line.text).replace(/​/g, '');
   const pinyin = getLastCharPinyin(text);
   if (!pinyin) {
     result.status = 'unchecked';

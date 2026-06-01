@@ -13,7 +13,8 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "mcp__fetch__fetch",
-      "Skill(browser-use)"
+      "Skill(browser-use)",
+      "Bash(python -c ' *)"
     ]
   }
 }

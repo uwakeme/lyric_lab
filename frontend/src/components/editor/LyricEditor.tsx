@@ -157,12 +157,16 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
    * 处理单个字符变化
    * @param index 字符索引
    * @param value 新的字符值
+   * 用零宽空格 (U+200B) 填充空位，保留字符位置。
+   * 例如：在第 3 个空框里输入"1"，得到 "​​​1"（3 个 ZWS + "1"），
+   * 渲染时 ZWS 显示为空，避免字符"塌缩"到最左侧。
    */
+  const PAD = '​';
   const handleCharChange = (index: number, value: string) => {
     const currentAdaptedChars = adaptedText ? adaptedText.split('') : [];
     const newChars = [...currentAdaptedChars];
     while (newChars.length <= index) {
-      newChars.push('');
+      newChars.push(PAD);
     }
     newChars[index] = value;
     onAdaptedChange(newChars.join(''));
