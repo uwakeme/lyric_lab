@@ -49,7 +49,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100" style={{ overflow: 'clip' }}>
+    <div className="h-screen flex flex-col bg-slate-100" style={{ overflow: 'hidden' }}>
       {/* Header - Floating Style */}
       <header className="h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md flex items-center justify-between px-4 md:px-6 flex-shrink-0 sticky top-0 z-20">
         <div className="flex items-center gap-3">
@@ -81,7 +81,7 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex" style={{ overflow: 'clip' }}>
+      <div className="flex-1 flex" style={{ overflow: 'hidden' }}>
         {/* Left Panel - Desktop */}
         <div
           className={`hidden md:flex w-72 flex-col border-r border-slate-200/80 bg-white/50 backdrop-blur-sm transition-all duration-300 flex-shrink-0`}
@@ -205,8 +205,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-4">
-              <div className="animate-fade-in space-y-4 h-full flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="animate-fade-in">
                 {rightTab === 'rhyme' && <RhymePanel />}
                 {rightTab === 'preview' && currentSong && (
                   <Preview inline onClose={() => setRightTab('rhyme')} />
