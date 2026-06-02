@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 
 import authRoutes from './routes/auth';
 import songRoutes from './routes/songs';
-import versionRoutes from './versions';
+import versionRoutes from './routes/versions';
 import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { startCrawlerScheduler, triggerManualCrawl } from './crawler';
