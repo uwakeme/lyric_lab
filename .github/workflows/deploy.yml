@@ -68,40 +68,41 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           envs: PATH,DATABASE_URL
+          script: |
+            set -e
+            DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            BACKUP_DIR="${DEPLOY_DIR}/backup_${TIMESTAMP}"
+
+            echo "备份旧版本..."
+            if [ -d "${DEPLOY_DIR}/frontend" ]; then
+              mkdir -p ${BACKUP_DIR}
+              cp -r ${DEPLOY_DIR}/frontend ${BACKUP_DIR}/ 2>/dev/null || true
+              cp -r ${DEPLOY_DIR}/server ${BACKUP_DIR}/ 2>/dev/null || true
+              echo "备份完成"
+            fi
+
+            echo "停止旧的后端服务..."
+            pm2 delete lyriclab-server 2>/dev/null || true
+
+            echo "安装后端依赖..."
+            cd ${DEPLOY_DIR}/server
+            # --ignore-scripts 跳过 postinstall 钩子，避免 prisma generate 在没有 DATABASE_URL 的环境下失败
+            # 运行时直接用预编译的 @prisma/client，不需要重新生成
+            npm install --production --ignore-scripts
+
+            echo "应用数据库迁移..."
+            npx prisma migrate deploy
+
+            echo "启动后端服务..."
+            # --cwd 必须显式指定到 server 目录，否则 require('./routes/auth') 会从错的目录解析
+            pm2 start app.js --name lyriclab-server --interpreter node --cwd ${DEPLOY_DIR}/server
+            pm2 save
+
+            echo "部署完成!"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        script: |
-          set -e
-          DEPLOY_DIR="${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          BACKUP_DIR="${DEPLOY_DIR}/backup_${TIMESTAMP}"
-
-          echo "备份旧版本..."
-          if [ -d "${DEPLOY_DIR}/frontend" ]; then
-            mkdir -p ${BACKUP_DIR}
-            cp -r ${DEPLOY_DIR}/frontend ${BACKUP_DIR}/ 2>/dev/null || true
-            cp -r ${DEPLOY_DIR}/server ${BACKUP_DIR}/ 2>/dev/null || true
-            echo "备份完成"
-          fi
-
-          echo "停止旧的后端服务..."
-          pm2 delete lyriclab-server 2>/dev/null || true
-
-          echo "安装后端依赖..."
-          cd ${DEPLOY_DIR}/server
-          # --ignore-scripts 跳过 postinstall 钩子，避免 prisma generate 在没有 DATABASE_URL 的环境下失败
-          # 运行时直接用预编译的 @prisma/client，不需要重新生成
-          npm install --production --ignore-scripts
-
-          echo "应用数据库迁移..."
-          npx prisma migrate deploy
-
-          echo "启动后端服务..."
-          # --cwd 必须显式指定到 server 目录，否则 require('./routes/auth') 会从错的目录解析
-          pm2 start app.js --name lyriclab-server --interpreter node --cwd ${DEPLOY_DIR}/server
-          pm2 save
-
-          echo "部署完成!"
+          PATH: "/home/ubuntu/.nvm/versions/node/v26.2.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
       - name: Deploy frontend to Nginx
         uses: appleboy/ssh-action@v1.0.3
