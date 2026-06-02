@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 
 interface PreviewProps {
   onClose: () => void;
+  inline?: boolean;
 }
 
 const themes = [
@@ -13,7 +14,7 @@ const themes = [
   { id: 'warm', name: '暖阳', bg: 'bg-gradient-to-br from-amber-100 to-orange-100', text: 'text-amber-900', secondary: 'text-amber-700' },
 ];
 
-export function Preview({ onClose }: PreviewProps) {
+export function Preview({ onClose, inline = false }: PreviewProps) {
   const [theme, setTheme] = useState('dark');
   const { currentSong } = useEditorStore();
 
@@ -21,10 +22,77 @@ export function Preview({ onClose }: PreviewProps) {
 
   const currentTheme = themes.find(t => t.id === theme) || themes[0];
 
+  const card = (
+    <div className={`${currentTheme.bg} rounded-2xl p-8 shadow-2xl`}>
+      {/* Song Info */}
+      <div className="text-center mb-8">
+        <h2 className={`text-2xl font-bold ${currentTheme.text}`}>
+          {currentSong.title}
+        </h2>
+        <p className={`text-sm ${currentTheme.secondary} mt-1`}>
+          {currentSong.artist}
+        </p>
+      </div>
+
+      {/* Lyrics */}
+      <div className={`${currentTheme.text} space-y-6`}>
+        {currentSong.lyrics.map(section => (
+          <div key={section.id}>
+            <h3 className={`text-xs font-medium ${currentTheme.secondary} mb-3 text-center uppercase tracking-wider`}>
+              {section.title}
+            </h3>
+            <div className="space-y-2 text-center">
+              {section.lines.map(line => (
+                <p
+                  key={line.id}
+                  className="text-center leading-relaxed"
+                  style={{ fontSize: '1.0625rem', lineHeight: 1.8 }}
+                >
+                  {line.text || <span className="opacity-30">(空行)</span>}
+                </p>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="text-center mt-10">
+        <p className={`text-xs ${currentTheme.secondary} opacity-40`}>
+          由 Lyric Lab 生成
+        </p>
+      </div>
+    </div>
+  );
+
+  // Inline mode: render inside the right tab panel, scroll naturally
+  if (inline) {
+    return (
+      <div className="animate-fade-in space-y-4">
+        <div className="flex gap-2 flex-wrap">
+          {themes.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                theme === t.id
+                  ? 'bg-primary-500 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+        {card}
+      </div>
+    );
+  }
+
+  // Modal mode: fullscreen overlay (used by mobile bottom nav)
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center pt-8 p-4 animate-fade-in overflow-y-auto">
       <div className="w-full max-w-md">
-        {/* Theme Selector */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-2">
             {themes.map(t => (
@@ -48,48 +116,7 @@ export function Preview({ onClose }: PreviewProps) {
             <X className="w-5 h-5" />
           </button>
         </div>
-
-        {/* Preview Card */}
-        <div className={`${currentTheme.bg} rounded-2xl p-8 shadow-2xl`}>
-          {/* Song Info */}
-          <div className="text-center mb-8">
-            <h2 className={`text-2xl font-bold ${currentTheme.text}`}>
-              {currentSong.title}
-            </h2>
-            <p className={`text-sm ${currentTheme.secondary} mt-1`}>
-              {currentSong.artist}
-            </p>
-          </div>
-
-          {/* Lyrics */}
-          <div className={`${currentTheme.text} space-y-6`}>
-            {currentSong.lyrics.map(section => (
-              <div key={section.id}>
-                <h3 className={`text-xs font-medium ${currentTheme.secondary} mb-3 text-center uppercase tracking-wider`}>
-                  {section.title}
-                </h3>
-                <div className="space-y-2 text-center">
-                  {section.lines.map(line => (
-                    <p
-                      key={line.id}
-                      className="text-center leading-relaxed"
-                      style={{ fontSize: '1.0625rem', lineHeight: 1.8 }}
-                    >
-                      {line.text || <span className="opacity-30">(空行)</span>}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="text-center mt-10">
-            <p className={`text-xs ${currentTheme.secondary} opacity-40`}>
-              由 Lyric Lab 生成
-            </p>
-          </div>
-        </div>
+        {card}
       </div>
     </div>
   );

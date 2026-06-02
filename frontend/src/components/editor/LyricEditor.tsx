@@ -404,7 +404,7 @@ export function LyricEditor() {
       </div>
 
       {/* 段落列表 */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
         {currentSong.lyrics.map((section, sectionIndex) => (
           <div
             key={section.id}
