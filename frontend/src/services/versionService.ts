@@ -1,5 +1,6 @@
 // Version service - localStorage persistence for versions
 import type { Song, Version } from '../types';
+import { generateId } from '../utils/id';
 
 const AUTOSAVE_KEY = 'lyriclab_autosave';
 const VERSION_PREFIX = 'lyriclab_version_';
@@ -17,8 +18,22 @@ interface VersionMeta {
   isAutoSave: boolean;
 }
 
-function generateId(): string {
-  return crypto.randomUUID().slice(0, 9);
+export class StorageQuotaError extends Error {
+  constructor(message = 'localStorage quota exceeded') {
+    super(message);
+    this.name = 'StorageQuotaError';
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    if (e instanceof DOMException && (e.code === 22 || e.name === 'QuotaExceededError')) {
+      throw new StorageQuotaError();
+    }
+    throw e;
+  }
 }
 
 export function saveAutoSave(song: Song): void {
@@ -29,7 +44,7 @@ export function saveAutoSave(song: Song): void {
     content: song,
     isAutoSave: true,
   };
-  localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(version));
+  safeSetItem(AUTOSAVE_KEY, JSON.stringify(version));
 }
 
 export function loadAutoSave(): Version | null {
@@ -54,11 +69,20 @@ export function saveVersion(song: Song, label: string): Version {
     content: song,
   };
 
-  // Save version data
-  localStorage.setItem(
-    `${VERSION_PREFIX}${version.id}`,
-    JSON.stringify(version)
-  );
+  const serialized = JSON.stringify(version);
+
+  // Save version data with quota handling
+  try {
+    safeSetItem(`${VERSION_PREFIX}${version.id}`, serialized);
+  } catch (e) {
+    if (e instanceof StorageQuotaError) {
+      // Evict oldest versions and retry once
+      evictOldVersions();
+      safeSetItem(`${VERSION_PREFIX}${version.id}`, serialized);
+    } else {
+      throw e;
+    }
+  }
 
   // Update index
   const index = getVersionIndex();
@@ -68,9 +92,21 @@ export function saveVersion(song: Song, label: string): Version {
     timestamp: version.timestamp,
     isAutoSave: false,
   });
-  localStorage.setItem(VERSION_INDEX_KEY, JSON.stringify(index));
+  safeSetItem(VERSION_INDEX_KEY, JSON.stringify(index));
 
   return version;
+}
+
+/** Evict oldest versions when localStorage is full */
+function evictOldVersions(): void {
+  const index = getVersionIndex();
+  const sorted = [...index.versions].sort((a, b) => a.timestamp - b.timestamp);
+  const toRemove = sorted.slice(0, 3);
+  for (const v of toRemove) {
+    localStorage.removeItem(`${VERSION_PREFIX}${v.id}`);
+    index.versions = index.versions.filter(entry => entry.id !== v.id);
+  }
+  localStorage.setItem(VERSION_INDEX_KEY, JSON.stringify(index));
 }
 
 export function getVersion(id: string): Version | null {
@@ -113,7 +149,7 @@ function getVersionIndex(): VersionIndex {
 }
 
 export function saveTempBackup(song: Song): void {
-  localStorage.setItem(TEMP_BACKUP_KEY, JSON.stringify({
+  safeSetItem(TEMP_BACKUP_KEY, JSON.stringify({
     timestamp: Date.now(),
     content: song,
   }));

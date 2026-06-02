@@ -2,6 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 
 import authRoutes from './routes/auth';
 import songRoutes from './routes/songs';
@@ -16,15 +17,33 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,                   // 20 attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { code: 429, message: 'Too many attempts, please try again later' },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,      // 1 minute
+  max: 100,                  // 100 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { code: 429, message: 'Too many requests, please slow down' },
+});
+
 // Middleware
 app.use(cors({
   origin: FRONTEND_URL,
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
+app.use('/api/', apiLimiter);
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/songs', songRoutes);
 app.use('/api/versions', versionRoutes);
 

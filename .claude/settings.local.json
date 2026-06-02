@@ -19,7 +19,8 @@
       "Bash(npx --yes js-yaml .github/workflows/deploy.yml)",
       "Bash(npx --yes -p js-yaml -- node -e ' *)",
       "Bash(npm exec *)",
-      "Bash(npx js-yaml *)"
+      "Bash(npx js-yaml *)",
+      "Bash(npm install *)"
     ]
   }
 }

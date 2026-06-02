@@ -32,15 +32,11 @@ export function RhymePanel() {
   const handleInsertWord = (word: RhymeWord) => {
     if (!selectedLine || !selectedSection) return;
 
-    const text = selectedLine.text.trim();
-    const lastSpaceIndex = text.lastIndexOf(' ');
-    let newText: string;
-
-    if (lastSpaceIndex !== -1) {
-      newText = text.slice(0, lastSpaceIndex + 1) + word.word;
-    } else {
-      newText = word.word;
-    }
+    // Replace the last character of the adapted text (or original if no adaptation yet)
+    const currentText = selectedLine.adaptedText ?? selectedLine.text;
+    const newText = currentText.length > 0
+      ? currentText.slice(0, -1) + word.word
+      : word.word;
 
     updateLineText(selectedSection.id, selectedLine.id, newText, 'adapted');
     success(`已插入"${word.word}"`);

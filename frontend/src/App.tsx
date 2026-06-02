@@ -11,7 +11,6 @@ import { LyricEditor, RhymePanel, EditorToolbar, LyricOverview } from './compone
 import { Preview } from './components/preview/Preview';
 import { UserAvatar } from './components/auth/UserAvatar';
 import { AuthModal } from './components/auth/AuthModal';
-import { loadAutoSave } from './services/versionService';
 import { Menu, X, Music, History, Download, Sparkles, Eye } from 'lucide-react';
 
 type LeftTab = 'import' | 'version' | 'export';
@@ -33,9 +32,7 @@ export default function App() {
     checkAuth();
 
     // Check for auto-saved content
-    const saved = loadAutoSave();
-    if (saved) {
-      loadFromAutoSave();
+    if (loadFromAutoSave()) {
       success('已恢复上次编辑内容');
     }
   }, []);

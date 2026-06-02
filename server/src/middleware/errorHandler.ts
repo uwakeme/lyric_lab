@@ -7,10 +7,15 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ) {
-  console.error('Error:', err);
+  const statusCode = (err as AppError).statusCode || 500;
 
-  const statusCode = (err as any).statusCode || 500;
-  const message = err.message || 'Internal server error';
+  // Log full error internally; only expose safe messages to clients
+  if (statusCode >= 500) {
+    console.error('Server Error:', err);
+  }
+
+  // 500 errors never leak internal details
+  const message = statusCode >= 500 ? 'Internal server error' : (err.message || 'Unknown error');
 
   res.status(statusCode).json({
     code: statusCode,

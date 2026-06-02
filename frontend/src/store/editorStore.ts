@@ -4,6 +4,7 @@ import type { Song, LyricSection, LyricLine, RhymeRule, EditorCommand } from '..
 import { saveAutoSave, loadAutoSave } from '../services/versionService';
 import { checkRhyme } from '../services/rhymeService';
 import { countChars } from '../utils/charCount';
+import { generateId } from '../utils/id';
 
 interface EditorStore {
   // State
@@ -41,9 +42,8 @@ interface EditorStore {
   loadFromAutoSave: () => boolean;
 }
 
-function generateId(): string {
-  return crypto.randomUUID().slice(0, 9);
-}
+// Module-level debounce timer for rhyme rule changes
+let rhymeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 function cloneSong(song: Song): Song {
   return structuredClone(song);
@@ -292,7 +292,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   setRhymeRule: (rule) => {
     set({ rhymeRule: rule });
-    get().checkAllRhymes();
+    // Debounce: avoid redundant full-song rhyme checks when switching rules rapidly
+    if (rhymeDebounceTimer) clearTimeout(rhymeDebounceTimer);
+    rhymeDebounceTimer = setTimeout(() => {
+      rhymeDebounceTimer = null;
+      get().checkAllRhymes();
+    }, 150);
   },
 
   setCharLimit: (min, max) => set({ charLimit: { min, max } }),
@@ -383,15 +388,21 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   markDirty: () => set({ isDirty: true }),
 
-  reset: () => set({
-    currentSong: null,
-    selectedSectionId: null,
-    selectedLineId: null,
-    isDirty: false,
-    undoStack: [],
-    redoStack: [],
-    editVersion: 0,
-  }),
+  reset: () => {
+    if (rhymeDebounceTimer) {
+      clearTimeout(rhymeDebounceTimer);
+      rhymeDebounceTimer = null;
+    }
+    set({
+      currentSong: null,
+      selectedSectionId: null,
+      selectedLineId: null,
+      isDirty: false,
+      undoStack: [],
+      redoStack: [],
+      editVersion: 0,
+    });
+  },
 
   autoSave: () => {
     const state = get();

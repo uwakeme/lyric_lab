@@ -1,84 +1,50 @@
 // Song routes
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import * as songService from '../services/songService';
 import { AppError } from '../middleware/errorHandler';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
 // Search songs
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const keyword = (req.query.keyword as string || '').slice(0, 100);
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
-    const offset = (page - 1) * limit;
+router.get('/', asyncHandler(async (req, res) => {
+  const keyword = (req.query.keyword as string || '').slice(0, 100);
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+  const offset = (page - 1) * limit;
 
-    const songs = await songService.searchSongs(keyword, limit, offset);
-
-    res.json({
-      code: 0,
-      data: songs,
-    });
-  } catch (err) {
-    const statusCode = (err as AppError).statusCode || 500;
-    res.status(statusCode).json({
-      code: statusCode,
-      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
-    });
-  }
-});
+  const songs = await songService.searchSongs(keyword, limit, offset);
+  res.json({ code: 0, data: songs });
+}));
 
 // Get hot songs
-router.get('/hot', async (req: Request, res: Response) => {
-  try {
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
-    const songs = await songService.getHotSongs(limit);
-
-    res.json({
-      code: 0,
-      data: songs,
-    });
-  } catch (err) {
-    const statusCode = (err as AppError).statusCode || 500;
-    res.status(statusCode).json({
-      code: statusCode,
-      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
-    });
-  }
-});
+router.get('/hot', asyncHandler(async (req, res) => {
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+  const songs = await songService.getHotSongs(limit);
+  res.json({ code: 0, data: songs });
+}));
 
 // Get song by ID with lyrics
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const song = await songService.getSongById(id);
+router.get('/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const song = await songService.getSongById(id);
 
-    if (!song) {
-      throw new AppError('Song not found', 404);
-    }
-
-    const formatted = {
-      id: song.id,
-      title: song.title,
-      artist: song.artist,
-      sourceUrl: song.sourceUrl,
-      sourcePlatform: song.sourcePlatform,
-      crawledAt: song.crawledAt,
-      lyrics: groupLyricsBySection(song.lyrics),
-    };
-
-    res.json({
-      code: 0,
-      data: formatted,
-    });
-  } catch (err) {
-    const statusCode = (err as AppError).statusCode || 500;
-    res.status(statusCode).json({
-      code: statusCode,
-      message: statusCode === 500 ? 'Internal server error' : (err as Error).message,
-    });
+  if (!song) {
+    throw new AppError('Song not found', 404);
   }
-});
+
+  const formatted = {
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    sourceUrl: song.sourceUrl,
+    sourcePlatform: song.sourcePlatform,
+    crawledAt: song.crawledAt,
+    lyrics: groupLyricsBySection(song.lyrics),
+  };
+
+  res.json({ code: 0, data: formatted });
+}));
 
 interface LyricLineData {
   id: string;

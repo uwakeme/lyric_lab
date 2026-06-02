@@ -1,7 +1,7 @@
 // Song import panel component - Refined
 import { useState, useEffect } from 'react';
 import { useEditorStore } from '../../store/editorStore';
-import { searchSongs, getHotSongs, getSongById, importSongFromText, getFallbackSongs } from '../../services/songService';
+import { searchSongs, getHotSongs, getSongById, importSongFromText } from '../../services/songService';
 import { useToast } from '../common/Toast';
 import { Search, Upload, TrendingUp, RefreshCw } from 'lucide-react';
 import type { Song } from '../../types';
@@ -36,7 +36,6 @@ export function ImportPanel() {
       }
     } catch {
       error('搜索失败，使用本地数据');
-      setSearchResults(getFallbackSongs().slice(0, 5));
     } finally {
       setIsSearching(false);
     }
@@ -47,8 +46,6 @@ export function ImportPanel() {
     try {
       const songs = await getHotSongs();
       setHotSongs(songs);
-    } catch {
-      setHotSongs(getFallbackSongs().slice(0, 5));
     } finally {
       setIsLoadingHot(false);
     }
