@@ -1,17 +1,15 @@
 // Express application entry point
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 
 import authRoutes from './routes/auth';
 import songRoutes from './routes/songs';
-import versionRoutes from './routes/versions';
+import versionRoutes from './versions';
 import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { startCrawlerScheduler, triggerManualCrawl } from './crawler';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
