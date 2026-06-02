@@ -205,8 +205,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="animate-fade-in">
+            <div className="flex-1 min-h-0">
+              <div className="animate-fade-in h-full">
                 {rightTab === 'rhyme' && <RhymePanel />}
                 {rightTab === 'preview' && currentSong && (
                   <Preview inline onClose={() => setRightTab('rhyme')} />
