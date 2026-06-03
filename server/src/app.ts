@@ -38,6 +38,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
+app.set('trust proxy', 1);
 app.use('/api/', apiLimiter);
 
 // Routes
