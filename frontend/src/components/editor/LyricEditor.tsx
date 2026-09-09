@@ -1,13 +1,25 @@
 /**
  * 歌词编辑器组件 - 逐字符编辑的盒子布局
+ *
+ * 渲染性能设计：
+ * - LyricEditor 只负责整体结构，段落和行分别下沉到 memo 化的 SectionBlock / LineEditor
+ * - 所有回调用 store action（引用恒定）+ 缓存的稳定闭包，props 浅比较即可跳过无关重渲染
+ * - 打字时只会重渲染：当前段落 → 当前行 → 当前字符框
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { countChars } from '../../utils/charCount';
 import { getRhymeTypeLabel } from '../../services/rhymeService';
+import type { LyricSection } from '../../types';
 import {
   Plus, Trash2, ChevronUp, ChevronDown, Music, RotateCcw
 } from 'lucide-react';
+
+/**
+ * 零宽空格 (U+200B) 占位符：填充空位保留字符位置，
+ * 渲染时显示为空，避免字符"塌缩"到最左侧
+ */
+const PAD = '​';
 
 /**
  * CharBox 组件属性接口
@@ -17,6 +29,8 @@ interface CharBoxProps {
   char: string;
   /** 是否可编辑 */
   isEditable: boolean;
+  /** 输入框引用回调 */
+  inputRef?: (el: HTMLInputElement | null) => void;
   /** 字符变化回调 */
   onChange: (value: string) => void;
   /** 输入完成回调 */
@@ -27,8 +41,6 @@ interface CharBoxProps {
   dragOverIndex?: number;
   /** 当前字符索引 */
   index: number;
-  /** 输入框引用回调 */
-  inputRef?: (el: HTMLInputElement | null) => void;
 }
 
 /**
@@ -94,14 +106,17 @@ const CharBox = React.memo(function CharBox({ char, isEditable, onChange, onFill
 
 /**
  * LineEditor 组件属性接口
+ * 传数据而非回调：父组件重渲染时 props 浅比较相等即可整行跳过
  */
 interface LineEditorProps {
+  /** 所属段落 id */
+  sectionId: string;
+  /** 歌词行 id */
+  lineId: string;
   /** 原始歌词文本（参考用） */
   originalText: string;
   /** 改编后的歌词文本 */
   adaptedText: string;
-  /** 改编文本变化回调 */
-  onAdaptedChange: (text: string) => void;
   /** 字符数限制 */
   charLimit: { min: number; max: number };
   /** 押韵状态 */
@@ -112,7 +127,9 @@ interface LineEditorProps {
  * LineEditor 组件 - 单行歌词编辑器
  * 显示原词和改编词的逐字符编辑界面
  */
-function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhymeStatus }: LineEditorProps) {
+const LineEditor = React.memo(function LineEditor({ sectionId, lineId, originalText, adaptedText, charLimit, rhymeStatus }: LineEditorProps) {
+  // store action 引用恒定，可安全用于缓存的闭包
+  const updateLineText = useEditorStore(s => s.updateLineText);
   const originalChars = originalText.split('');
   const adaptedChars = adaptedText ? adaptedText.split('') : [];
   const [addedBoxes, setAddedBoxes] = useState(0);
@@ -120,6 +137,16 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
   // 每个 index 对应一个稳定的 ref 回调，避免每次 render 重建函数 ref 导致 React 反复"null → element"切换
   const refCallbackCache = useRef<Map<number, (el: HTMLInputElement | null) => void>>(new Map());
+  // 每个 index 的 onChange/onFilled 回调缓存：CharBox 是 memo 组件，
+  // 回调稳定后它只在自身 char 变化时重渲染（否则同段打字会让所有字框重渲染）
+  const handlerCache = useRef<Map<number, { onChange: (value: string) => void; onFilled: () => void }>>(new Map());
+  // 缓存的回调是长期闭包，读最新改编文本走这个 ref，避免闭包过期
+  const adaptedTextRef = useRef(adaptedText);
+
+  useEffect(() => {
+    adaptedTextRef.current = adaptedText;
+  });
+
   const getInputRef = (index: number) => {
     const cache = refCallbackCache.current;
     let cb = cache.get(index);
@@ -137,6 +164,43 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
   };
 
   /**
+   * 获取 index 对应的稳定回调（缓存于 ref，跨渲染保持同一引用）
+   */
+  const getHandlers = (index: number) => {
+    const cache = handlerCache.current;
+    let h = cache.get(index);
+    if (!h) {
+      h = {
+        /**
+         * 处理单个字符变化
+         * 用 PAD（零宽空格）填充空位，保留字符位置
+         */
+        onChange: (value: string) => {
+          const chars = adaptedTextRef.current ? adaptedTextRef.current.split('') : [];
+          while (chars.length <= index) {
+            chars.push(PAD);
+          }
+          chars[index] = value;
+          updateLineText(sectionId, lineId, chars.join(''), 'adapted');
+        },
+        /**
+         * 输入完成后跳转到下一个输入框
+         * 下一个框已经有字时也直接 focus，maxLength={1} 会让用户输入覆盖
+         */
+        onFilled: () => {
+          const next = inputRefs.current.get(index + 1);
+          if (next) {
+            next.focus();
+            next.select();
+          }
+        },
+      };
+      cache.set(index, h);
+    }
+    return h;
+  };
+
+  /**
    * 当原词文本变化时，重置添加的字符框数量
    */
   useEffect(() => {
@@ -150,39 +214,9 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
     return () => {
       inputRefs.current.clear();
       refCallbackCache.current.clear();
+      handlerCache.current.clear();
     };
   }, []);
-
-  /**
-   * 处理单个字符变化
-   * @param index 字符索引
-   * @param value 新的字符值
-   * 用零宽空格 (U+200B) 填充空位，保留字符位置。
-   * 例如：在第 3 个空框里输入"1"，得到 "​​​1"（3 个 ZWS + "1"），
-   * 渲染时 ZWS 显示为空，避免字符"塌缩"到最左侧。
-   */
-  const PAD = '​';
-  const handleCharChange = (index: number, value: string) => {
-    const currentAdaptedChars = adaptedText ? adaptedText.split('') : [];
-    const newChars = [...currentAdaptedChars];
-    while (newChars.length <= index) {
-      newChars.push(PAD);
-    }
-    newChars[index] = value;
-    onAdaptedChange(newChars.join(''));
-  };
-
-  /**
-   * 输入完成后跳转到下一个输入框
-   * 下一个框已经有字时也直接 focus，maxLength={1} 会让用户输入覆盖
-   */
-  const focusNextInput = (index: number) => {
-    const next = inputRefs.current.get(index + 1);
-    if (next) {
-      next.focus();
-      next.select();
-    }
-  };
 
   /**
    * 添加新的字符框
@@ -199,7 +233,7 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
       setAddedBoxes(prev => prev - 1);
       // 如果改编文本超出原词长度，也同时裁剪
       if (adaptedChars.length > originalChars.length) {
-        onAdaptedChange(adaptedChars.slice(0, -1).join(''));
+        updateLineText(sectionId, lineId, adaptedChars.slice(0, -1).join(''), 'adapted');
       }
     }
   };
@@ -212,7 +246,7 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
     // 先 blur 所有输入框，避免 DOM 重置时焦点问题
     inputRefs.current.forEach((ref) => ref.blur());
     setAddedBoxes(0);
-    onAdaptedChange('');
+    updateLineText(sectionId, lineId, '', 'adapted');
   };
 
   const adaptedCount = countChars(adaptedText);
@@ -248,17 +282,20 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
           {rhymeStatus === 'mismatch' && <div className="w-2 h-2 rounded-full bg-error" title="押韵不匹配" />}
         </div>
         <div className="flex gap-1 flex-wrap">
-          {Array.from({ length: maxBoxes }).map((_, i) => (
-            <CharBox
-              key={i}
-              index={i}
-              char={adaptedChars[i] || ''}
-              isEditable={true}
-              onChange={(value) => handleCharChange(i, value)}
-              onFilled={() => focusNextInput(i)}
-              inputRef={getInputRef(i)}
-            />
-          ))}
+          {Array.from({ length: maxBoxes }).map((_, i) => {
+            const handlers = getHandlers(i);
+            return (
+              <CharBox
+                key={i}
+                index={i}
+                char={adaptedChars[i] || ''}
+                isEditable={true}
+                onChange={handlers.onChange}
+                onFilled={handlers.onFilled}
+                inputRef={getInputRef(i)}
+              />
+            );
+          })}
         </div>
         <button
           onClick={handleAddBox}
@@ -294,7 +331,151 @@ function LineEditor({ originalText, adaptedText, onAdaptedChange, charLimit, rhy
       </div>
     </div>
   );
+});
+
+/**
+ * SectionBlock 组件属性接口
+ * 布尔值/action 均为原始值或稳定引用，段落内容不变时整块跳过重渲染
+ */
+interface SectionBlockProps {
+  /** 段落数据（其他段落更新时引用不变） */
+  section: LyricSection;
+  /** 是否为当前选中段落 */
+  isSelected: boolean;
+  /** 是否为第一个段落 */
+  isFirst: boolean;
+  /** 是否为最后一个段落 */
+  isLast: boolean;
+  /** 字符数限制 */
+  charLimit: { min: number; max: number };
+  moveSection: (sectionId: string, direction: 'up' | 'down') => void;
+  addSection: (title: string) => void;
+  deleteSection: (sectionId: string) => void;
+  updateSectionTitle: (sectionId: string, title: string) => void;
+  addLine: (sectionId: string) => void;
+  deleteLine: (sectionId: string, lineId: string) => void;
+  moveLine: (sectionId: string, lineId: string, direction: 'up' | 'down') => void;
 }
+
+/**
+ * SectionBlock 组件 - 单个段落（标题栏 + 歌词行列表）
+ */
+const SectionBlock = React.memo(function SectionBlock({
+  section, isSelected, isFirst, isLast, charLimit,
+  moveSection, addSection, deleteSection, updateSectionTitle,
+  addLine, deleteLine, moveLine,
+}: SectionBlockProps) {
+  return (
+    <div
+      className={`card p-5 transition-all duration-200 ${
+        isSelected
+          ? 'ring-2 ring-primary-300 shadow-md'
+          : 'hover:shadow-md'
+      }`}
+    >
+      {/* 段落标题栏 */}
+      <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+        <input
+          type="text"
+          value={section.title}
+          onChange={e => updateSectionTitle(section.id, e.target.value)}
+          className="text-sm font-semibold text-primary-600 bg-transparent border-b border-transparent hover:border-primary-300 focus:border-primary-500 outline-none transition-colors py-0.5"
+        />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => moveSection(section.id, 'up')}
+            disabled={isFirst}
+            className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="上移段落"
+          >
+            <ChevronUp className="w-4 h-4 text-slate-500" />
+          </button>
+          <button
+            onClick={() => moveSection(section.id, 'down')}
+            disabled={isLast}
+            className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="下移段落"
+          >
+            <ChevronDown className="w-4 h-4 text-slate-500" />
+          </button>
+          <button
+            onClick={() => addSection(section.title || '新段落')}
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-primary-500 transition-colors"
+            title="复制段落"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => deleteSection(section.id)}
+            disabled={isFirst && isLast}
+            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-error disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="删除段落"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* 歌词行列表 */}
+      <div className="space-y-6">
+        {section.lines.map((line, lineIndex) => (
+          <div
+            key={line.id}
+            className="group p-3 rounded-xl hover:bg-slate-50 transition-colors"
+          >
+            {/* 行号和操作按钮 */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs text-slate-400 w-6">#{lineIndex + 1}</span>
+              <div className="flex-1 h-px bg-slate-100" />
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => moveLine(section.id, line.id, 'up')}
+                  disabled={lineIndex === 0}
+                  className="p-1 rounded hover:bg-slate-200 disabled:opacity-30"
+                >
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                </button>
+                <button
+                  onClick={() => moveLine(section.id, line.id, 'down')}
+                  disabled={lineIndex === section.lines.length - 1}
+                  className="p-1 rounded hover:bg-slate-200 disabled:opacity-30"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                </button>
+                <button
+                  onClick={() => deleteLine(section.id, line.id)}
+                  disabled={section.lines.length <= 1}
+                  className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-error disabled:opacity-30"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* 歌词行编辑器 */}
+            <LineEditor
+              sectionId={section.id}
+              lineId={line.id}
+              originalText={line.text}
+              adaptedText={line.adaptedText || ''}
+              charLimit={charLimit}
+              rhymeStatus={line.rhymeStatus}
+            />
+          </div>
+        ))}
+
+        {/* 添加歌词行按钮 */}
+        <button
+          onClick={() => addLine(section.id)}
+          className="flex items-center justify-center gap-2 w-full p-3 text-sm text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors border-2 border-dashed border-slate-200 hover:border-primary-300"
+        >
+          <Plus className="w-4 h-4" />
+          <span>添加句子</span>
+        </button>
+      </div>
+    </div>
+  );
+});
 
 /**
  * LyricEditor 组件 - 主歌词编辑器
@@ -306,7 +487,8 @@ export function LyricEditor() {
     selectedSectionId,
     rhymeRule,
     charLimit,
-    updateLineText,
+    autoSave,
+    editVersion,
     addSection,
     deleteSection,
     moveSection,
@@ -316,7 +498,6 @@ export function LyricEditor() {
     moveLine,
   } = useEditorStore();
 
-  const { autoSave, editVersion } = useEditorStore();
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
@@ -406,118 +587,21 @@ export function LyricEditor() {
       {/* 段落列表 */}
       <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
         {currentSong.lyrics.map((section, sectionIndex) => (
-          <div
+          <SectionBlock
             key={section.id}
-            className={`card p-5 transition-all duration-200 ${
-              selectedSectionId === section.id
-                ? 'ring-2 ring-primary-300 shadow-md'
-                : 'hover:shadow-md'
-            }`}
-          >
-            {/* 段落标题栏 */}
-            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
-              <input
-                type="text"
-                value={section.title}
-                onChange={e => updateSectionTitle(section.id, e.target.value)}
-                className="text-sm font-semibold text-primary-600 bg-transparent border-b border-transparent hover:border-primary-300 focus:border-primary-500 outline-none transition-colors py-0.5"
-              />
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => moveSection(section.id, 'up')}
-                  disabled={sectionIndex === 0}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="上移段落"
-                >
-                  <ChevronUp className="w-4 h-4 text-slate-500" />
-                </button>
-                <button
-                  onClick={() => moveSection(section.id, 'down')}
-                  disabled={sectionIndex === currentSong.lyrics.length - 1}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="下移段落"
-                >
-                  <ChevronDown className="w-4 h-4 text-slate-500" />
-                </button>
-                <button
-                  onClick={() => addSection(section.title || '新段落')}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-primary-500 transition-colors"
-                  title="复制段落"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (currentSong.lyrics.length > 1) {
-                      deleteSection(section.id);
-                    }
-                  }}
-                  disabled={currentSong.lyrics.length <= 1}
-                  className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-error disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="删除段落"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* 歌词行列表 */}
-            <div className="space-y-6">
-              {section.lines.map((line, lineIndex) => (
-                <div
-                  key={line.id}
-                  className="group p-3 rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  {/* 行号和操作按钮 */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs text-slate-400 w-6">#{lineIndex + 1}</span>
-                    <div className="flex-1 h-px bg-slate-100" />
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => moveLine(section.id, line.id, 'up')}
-                        disabled={lineIndex === 0}
-                        className="p-1 rounded hover:bg-slate-200 disabled:opacity-30"
-                      >
-                        <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
-                      </button>
-                      <button
-                        onClick={() => moveLine(section.id, line.id, 'down')}
-                        disabled={lineIndex === section.lines.length - 1}
-                        className="p-1 rounded hover:bg-slate-200 disabled:opacity-30"
-                      >
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                      </button>
-                      <button
-                        onClick={() => deleteLine(section.id, line.id)}
-                        disabled={section.lines.length <= 1}
-                        className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-error disabled:opacity-30"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 歌词行编辑器 */}
-                  <LineEditor
-                    originalText={line.text}
-                    adaptedText={line.adaptedText || ''}
-                    onAdaptedChange={(text) => updateLineText(section.id, line.id, text, 'adapted')}
-                    charLimit={charLimit}
-                    rhymeStatus={line.rhymeStatus}
-                  />
-                </div>
-              ))}
-
-              {/* 添加歌词行按钮 */}
-              <button
-                onClick={() => addLine(section.id)}
-                className="flex items-center justify-center gap-2 w-full p-3 text-sm text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-colors border-2 border-dashed border-slate-200 hover:border-primary-300"
-              >
-                <Plus className="w-4 h-4" />
-                <span>添加句子</span>
-              </button>
-            </div>
-          </div>
+            section={section}
+            isSelected={selectedSectionId === section.id}
+            isFirst={sectionIndex === 0}
+            isLast={sectionIndex === currentSong.lyrics.length - 1}
+            charLimit={charLimit}
+            moveSection={moveSection}
+            addSection={addSection}
+            deleteSection={deleteSection}
+            updateSectionTitle={updateSectionTitle}
+            addLine={addLine}
+            deleteLine={deleteLine}
+            moveLine={moveLine}
+          />
         ))}
 
         {/* 添加段落按钮 */}

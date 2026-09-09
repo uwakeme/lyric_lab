@@ -22,15 +22,14 @@ export async function crawlFromSource(
 
     for (const song of songs) {
       try {
-        const exists = await songService.songExists(song.title, song.artist);
+        // 一次查询同时完成去重判断和取 id，替代原先的 count + findFirst 两次查询
+        const existing = await prisma.song.findFirst({
+          where: { title: song.title, artist: song.artist },
+          select: { id: true },
+        });
 
-        if (exists) {
-          const existing = await prisma.song.findFirst({
-            where: { title: song.title, artist: song.artist },
-          });
-          if (existing) {
-            await songService.updateSongCrawledAt(existing.id);
-          }
+        if (existing) {
+          await songService.updateSongCrawledAt(existing.id);
           continue;
         }
 
