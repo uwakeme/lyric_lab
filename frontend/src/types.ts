@@ -31,6 +31,8 @@ export interface Song {
   title: string;
   artist: string;
   lyrics: LyricSection[];
+  /** 曲库分类（内置歌曲使用：经典金曲/粤语经典/KTV必点/流行热榜/国际经典） */
+  category?: string;
   source?: string;
   sourceUrl?: string;
 }

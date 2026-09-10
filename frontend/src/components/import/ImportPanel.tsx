@@ -6,6 +6,33 @@ import { useToast } from '../common/Toast';
 import { Search, Upload, TrendingUp, RefreshCw } from 'lucide-react';
 import type { Song } from '../../types';
 
+/** 歌曲是否带有可编辑的歌词内容 */
+function hasLyricContent(song: Song): boolean {
+  return !!song.lyrics?.some(sec => sec.lines.length > 0);
+}
+
+/**
+ * 歌曲列表项（搜索结果 / 热门歌曲共用）
+ */
+function SongItem({ song, onSelect }: { song: Song; onSelect: (song: Song) => void }) {
+  return (
+    <button
+      onClick={() => onSelect(song)}
+      className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-primary-300 hover:bg-primary-50/50 transition-all"
+    >
+      <div className="font-medium text-slate-800 text-sm">
+        {song.title}
+        {song.category && (
+          <span className="ml-1.5 text-[10px] font-normal px-1.5 py-0.5 rounded bg-accent-50 text-accent-600">
+            {song.category}
+          </span>
+        )}
+      </div>
+      <div className="text-xs text-slate-500">{song.artist}</div>
+    </button>
+  );
+}
+
 export function ImportPanel() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState<Song[]>([]);
@@ -53,7 +80,7 @@ export function ImportPanel() {
 
   const handleSelectSong = async (song: Song) => {
     // If song already has lyrics (from fallback), use it directly
-    if (song.lyrics && song.lyrics.length > 0) {
+    if (hasLyricContent(song)) {
       setCurrentSong(song);
       success(`已加载《${song.title}》`);
       return;
@@ -62,15 +89,18 @@ export function ImportPanel() {
     // Otherwise fetch full song with lyrics from API
     try {
       const fullSong = await getSongById(song.id);
-      if (fullSong) {
+      if (fullSong && hasLyricContent(fullSong)) {
         setCurrentSong(fullSong);
         success(`已加载《${song.title}》`);
-      } else {
-        error('获取歌曲详情失败');
+        return;
       }
     } catch {
-      error('获取歌曲详情失败');
+      // 接口不可用时继续走本地加载
     }
+
+    // 内置曲库歌曲不随代码分发歌词：仍然加载，提示用户手动导入
+    setCurrentSong(song);
+    warning(`《${song.title}》暂无内置歌词，可在下方"手动导入歌词"中粘贴`);
   };
 
   const handleManualImport = async () => {
@@ -124,14 +154,7 @@ export function ImportPanel() {
           <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide">搜索结果</h4>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {searchResults.map(song => (
-              <button
-                key={song.id}
-                onClick={() => handleSelectSong(song)}
-                className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-primary-300 hover:bg-primary-50/50 transition-all"
-              >
-                <div className="font-medium text-slate-800 text-sm">{song.title}</div>
-                <div className="text-xs text-slate-500">{song.artist}</div>
-              </button>
+              <SongItem key={song.id} song={song} onSelect={handleSelectSong} />
             ))}
           </div>
         </div>
@@ -157,14 +180,7 @@ export function ImportPanel() {
           {hotSongs.length > 0 ? (
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {hotSongs.map(song => (
-                <button
-                  key={song.id}
-                  onClick={() => handleSelectSong(song)}
-                  className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-primary-300 hover:bg-primary-50/50 transition-all"
-                >
-                  <div className="font-medium text-slate-800 text-sm">{song.title}</div>
-                  <div className="text-xs text-slate-500">{song.artist}</div>
-                </button>
+                <SongItem key={song.id} song={song} onSelect={handleSelectSong} />
               ))}
             </div>
           ) : (
