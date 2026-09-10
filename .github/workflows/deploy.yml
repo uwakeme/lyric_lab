@@ -56,9 +56,9 @@ jobs:
 
       - name: Copy files to server
         run: |
-          ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}"
+          ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/frontend ${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/server ${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/logs"
           scp -o StrictHostKeyChecking=no -i /tmp/deploy_key -P ${{ secrets.SERVER_PORT || 22 }} -r ./frontend/dist/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/frontend/
-          scp -o StrictHostKeyChecking=no -i /tmp/deploy_key -P ${{ secrets.SERVER_PORT || 22 }} -r ./server/dist/* ./server/package.json ./server/package-lock.json ./server/prisma ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/server/
+          scp -o StrictHostKeyChecking=no -i /tmp/deploy_key -P ${{ secrets.SERVER_PORT || 22 }} -r ./server/dist/* ./server/package.json ./server/package-lock.json ./server/prisma ./server/lyriclab-pm2.json ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR || '/var/www/lyriclab' }}/server/
 
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -82,6 +82,16 @@ jobs:
               echo "备份完成"
             fi
 
+            echo "确保日志目录存在..."
+            mkdir -p ${DEPLOY_DIR}/logs
+
+            echo "确保 .env 存在..."
+            # 只在缺失时创建，不覆盖服务器上手动维护的 .env（里面有 JWT_SECRET 等密钥）
+            if [ ! -f "${DEPLOY_DIR}/server/.env" ]; then
+              echo "DATABASE_URL=${DATABASE_URL}" > ${DEPLOY_DIR}/server/.env
+              echo ">> 已创建初始 .env（仅含 DATABASE_URL），请手动补充 JWT_SECRET / JWT_REFRESH_SECRET，否则后端会启动失败"
+            fi
+
             echo "停止旧的后端服务..."
             pm2 delete lyriclab-server 2>/dev/null || true
 
@@ -94,9 +104,16 @@ jobs:
             echo "应用数据库迁移..."
             npx prisma migrate deploy
 
-            echo "启动后端服务..."
-            # --cwd 必须显式指定到 server 目录，否则 require('./routes/auth') 会从错的目录解析
-            pm2 start app.js --name lyriclab-server --interpreter node --cwd ${DEPLOY_DIR}/server
+            echo "用 PM2 配置文件启动后端服务..."
+            # PM2 启动文件 server/lyriclab-pm2.json 已随上面的文件复制步骤上传，这里校验一下
+            if [ ! -f "${DEPLOY_DIR}/server/lyriclab-pm2.json" ]; then
+              echo "错误: 未找到 ${DEPLOY_DIR}/server/lyriclab-pm2.json，请检查文件复制步骤是否成功"
+              exit 1
+            fi
+            # 服务意外停止时，在服务器上手动重启：
+            #   pm2 restart lyriclab-server 或
+            #   cd ${DEPLOY_DIR}/server && pm2 start lyriclab-pm2.json
+            pm2 start ${DEPLOY_DIR}/server/lyriclab-pm2.json
             pm2 save
 
             echo "部署完成!"
