@@ -49,16 +49,23 @@ function cloneSong(song: Song): Song {
   return structuredClone(song);
 }
 
-function pushUndo(state: EditorStore, before: Song): Pick<EditorStore, 'undoStack' | 'redoStack'> {
+// 撤销栈直接保存快照引用：所有 state 更新都是不可变操作，
+// 历史 Song 对象不会再被修改，无需 structuredClone（每次按键深拷贝整首歌开销大）。
+// 只有 setCurrentSong 从外部（API/导入）接收歌曲时才做一次防御性拷贝。
+function pushUndo(
+  undoStack: EditorCommand[],
+  before: Song,
+  after: Song
+): Pick<EditorStore, 'undoStack' | 'redoStack'> {
   const cmd: EditorCommand = {
     type: 'text',
     timestamp: Date.now(),
     before,
-    after: cloneSong(state.currentSong!),
+    after,
   };
-  const undoStack = [...state.undoStack, cmd];
-  if (undoStack.length > 50) undoStack.shift();
-  return { undoStack, redoStack: [] };
+  const next = [...undoStack, cmd];
+  if (next.length > 50) next.shift();
+  return { undoStack: next, redoStack: [] };
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
@@ -89,7 +96,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const state = get();
     if (!state.currentSong) return;
 
-    const before = cloneSong(state.currentSong);
     const newLyrics = state.currentSong.lyrics.map(section => {
       if (section.id !== sectionId) return section;
       return {
@@ -116,7 +122,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const newSong = { ...state.currentSong, lyrics: newLyrics };
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       editVersion: state.editVersion + 1,
     });
@@ -126,7 +132,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const state = get();
     if (!state.currentSong) return;
 
-    const before = cloneSong(state.currentSong);
     const newSection: LyricSection = {
       id: generateId(),
       title,
@@ -139,7 +144,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       selectedSectionId: newSection.id,
       editVersion: state.editVersion + 1,
@@ -151,13 +156,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (!state.currentSong) return;
     if (state.currentSong.lyrics.length <= 1) return;
 
-    const before = cloneSong(state.currentSong);
     const newLyrics = state.currentSong.lyrics.filter(s => s.id !== sectionId);
     const newSong = { ...state.currentSong, lyrics: newLyrics };
 
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       selectedSectionId: newLyrics[0]?.id || null,
       editVersion: state.editVersion + 1,
@@ -174,14 +178,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= state.currentSong.lyrics.length) return;
 
-    const before = cloneSong(state.currentSong);
     const newLyrics = [...state.currentSong.lyrics];
     [newLyrics[index], newLyrics[newIndex]] = [newLyrics[newIndex], newLyrics[index]];
     const newSong = { ...state.currentSong, lyrics: newLyrics };
 
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       editVersion: state.editVersion + 1,
     });
@@ -191,7 +194,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const state = get();
     if (!state.currentSong) return;
 
-    const before = cloneSong(state.currentSong);
     const newLyrics = state.currentSong.lyrics.map(section =>
       section.id === sectionId ? { ...section, title } : section
     );
@@ -199,7 +201,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       editVersion: state.editVersion + 1,
     });
@@ -209,7 +211,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const state = get();
     if (!state.currentSong) return;
 
-    const before = cloneSong(state.currentSong);
     const newLine: LyricLine = {
       id: generateId(),
       text: '',
@@ -231,7 +232,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       selectedLineId: newLine.id,
       editVersion: state.editVersion + 1,
@@ -245,7 +246,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const section = state.currentSong.lyrics.find(s => s.id === sectionId);
     if (!section || section.lines.length <= 1) return;
 
-    const before = cloneSong(state.currentSong);
     const newLyrics = state.currentSong.lyrics.map(s => {
       if (s.id !== sectionId) return s;
       return { ...s, lines: s.lines.filter(l => l.id !== lineId) };
@@ -254,7 +254,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       editVersion: state.editVersion + 1,
     });
@@ -273,7 +273,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= section.lines.length) return;
 
-    const before = cloneSong(state.currentSong);
     const newLyrics = state.currentSong.lyrics.map(s => {
       if (s.id !== sectionId) return s;
       const newLines = [...s.lines];
@@ -284,7 +283,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     set({
       currentSong: newSong,
-      ...pushUndo({ ...state, currentSong: newSong }, before),
+      ...pushUndo(state.undoStack, state.currentSong, newSong),
       isDirty: true,
       editVersion: state.editVersion + 1,
     });
@@ -307,6 +306,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (!state.currentSong) return;
     if (state.rhymeRule.type === 'none') return;
 
+    let changed = false;
     const newLyrics = state.currentSong.lyrics.map(section => {
       if (section.id !== sectionId) return section;
       return {
@@ -315,10 +315,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           if (line.id !== lineId) return line;
           const textToCheck = line.adaptedText ?? line.text;
           const result = checkRhyme(line, state.rhymeRule, textToCheck);
+          if (line.rhymeStatus === result.status) return line;
+          changed = true;
           return { ...line, rhymeStatus: result.status };
         }),
       };
     });
+    // 状态没变化就不更新 state，避免多余的 isDirty 和重渲染
+    if (!changed) return;
     const newSong = { ...state.currentSong, lyrics: newLyrics };
 
     set({ currentSong: newSong, isDirty: true });
@@ -329,14 +333,21 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (!state.currentSong) return;
     if (state.rhymeRule.type === 'none') return;
 
-    const newLyrics = state.currentSong.lyrics.map(section => ({
-      ...section,
-      lines: section.lines.map(line => {
+    let changed = false;
+    const newLyrics = state.currentSong.lyrics.map(section => {
+      let sectionChanged = false;
+      const newLines = section.lines.map(line => {
         const textToCheck = line.adaptedText ?? line.text;
         const result = checkRhyme(line, state.rhymeRule, textToCheck);
+        // 保留未变化行的引用，未受影响的组件可以跳过重渲染
+        if (line.rhymeStatus === result.status) return line;
+        sectionChanged = true;
+        changed = true;
         return { ...line, rhymeStatus: result.status };
-      }),
-    }));
+      });
+      return sectionChanged ? { ...section, lines: newLines } : section;
+    });
+    if (!changed) return;
     const newSong = { ...state.currentSong, lyrics: newLyrics };
 
     set({ currentSong: newSong, isDirty: true });
@@ -347,17 +358,16 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (state.undoStack.length === 0 || !state.currentSong) return;
 
     const cmd = state.undoStack[state.undoStack.length - 1];
-    const newUndoStack = state.undoStack.slice(0, -1);
     const redoEntry: EditorCommand = {
       type: 'text',
       timestamp: Date.now(),
-      before: cloneSong(state.currentSong),
+      before: state.currentSong,
       after: cmd.before,
     };
 
     set({
-      currentSong: cloneSong(cmd.before),
-      undoStack: newUndoStack,
+      currentSong: cmd.before,
+      undoStack: state.undoStack.slice(0, -1),
       redoStack: [...state.redoStack, redoEntry],
       isDirty: true,
       editVersion: state.editVersion + 1,
@@ -369,18 +379,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (state.redoStack.length === 0 || !state.currentSong) return;
 
     const cmd = state.redoStack[state.redoStack.length - 1];
-    const newRedoStack = state.redoStack.slice(0, -1);
     const undoEntry: EditorCommand = {
       type: 'text',
       timestamp: Date.now(),
-      before: cloneSong(state.currentSong),
+      before: state.currentSong,
       after: cmd.after,
     };
 
     set({
-      currentSong: cloneSong(cmd.after),
+      currentSong: cmd.after,
       undoStack: [...state.undoStack, undoEntry],
-      redoStack: newRedoStack,
+      redoStack: state.redoStack.slice(0, -1),
       isDirty: true,
       editVersion: state.editVersion + 1,
     });

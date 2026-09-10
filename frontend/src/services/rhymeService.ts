@@ -10,6 +10,11 @@ export interface RhymeCheckResult {
   message?: string;
 }
 
+/** 声调显示：0 为轻声 */
+function toneLabel(tone: number): string {
+  return tone === 0 ? '轻声' : `${tone}声`;
+}
+
 export function checkRhyme(
   line: LyricLine,
   rule: RhymeRule,
@@ -54,8 +59,8 @@ export function checkRhyme(
       } else {
         result.status = 'mismatch';
         result.expected = '平声（1、2声）';
-        result.actual = `仄声（${pinyin.tone}声）`;
-        result.message = `声调不符：期望平声，实际${pinyin.tone}声`;
+        result.actual = `仄声（${toneLabel(pinyin.tone)}）`;
+        result.message = `声调不符：期望平声，实际${toneLabel(pinyin.tone)}`;
       }
       break;
 
@@ -65,8 +70,8 @@ export function checkRhyme(
       } else {
         result.status = 'mismatch';
         result.expected = '仄声（3、4声）';
-        result.actual = `平声（${pinyin.tone}声）`;
-        result.message = `声调不符：期望仄声，实际${pinyin.tone}声`;
+        result.actual = `平声（${toneLabel(pinyin.tone)}）`;
+        result.message = `声调不符：期望仄声，实际${toneLabel(pinyin.tone)}`;
       }
       break;
   }

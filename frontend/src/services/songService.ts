@@ -51,8 +51,26 @@ export async function getHotSongs(): Promise<Song[]> {
 
   if (data?.data) return data.data;
 
+  // 离线兜底：按分类轮询取样，让热门列表覆盖各个曲库分类
   const fallback = await getFallbackSongs();
-  return fallback.slice(0, 5);
+  const groups = new Map<string, Song[]>();
+  for (const song of fallback) {
+    const key = song.category ?? '';
+    const list = groups.get(key);
+    if (list) list.push(song);
+    else groups.set(key, [song]);
+  }
+
+  const hot: Song[] = [];
+  const groupList = [...groups.values()];
+  const rounds = Math.max(0, ...groupList.map(g => g.length));
+  for (let i = 0; i < rounds && hot.length < 10; i++) {
+    for (const g of groupList) {
+      if (g[i]) hot.push(g[i]);
+      if (hot.length >= 10) break;
+    }
+  }
+  return hot;
 }
 
 export async function getSongById(id: string): Promise<Song | null> {

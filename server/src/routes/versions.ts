@@ -69,18 +69,18 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const version = await prisma.userVersion.findFirst({
+  // deleteMany 带 userId 条件：一次查询完成鉴权过滤 + 删除
+  const result = await prisma.userVersion.deleteMany({
     where: {
       id,
       userId: req.user!.userId,
     },
   });
 
-  if (!version) {
+  if (result.count === 0) {
     throw new AppError('Version not found', 404);
   }
 
-  await prisma.userVersion.delete({ where: { id } });
   res.json({ code: 0, data: { success: true } });
 }));
 

@@ -96,13 +96,6 @@ export async function createSong(
   });
 }
 
-export async function songExists(title: string, artist: string): Promise<boolean> {
-  const count = await prisma.song.count({
-    where: { title, artist },
-  });
-  return count > 0;
-}
-
 export async function updateSongCrawledAt(id: string) {
   return prisma.song.update({
     where: { id },
