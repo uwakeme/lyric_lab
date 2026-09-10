@@ -8,20 +8,61 @@ interface PinyinResult {
   full: string;
 }
 
+/**
+ * 韵基归一化：介音（韵头）不参与押韵，复合韵母折算到所属韵类。
+ * 词库的 12 个韵类按十三辙归组，此处映射与其一一对应：
+ * ang 含 iang/uang（江阳）、ai 含 uai（怀来）、ei 含 ui/uei（灰堆）、
+ * ou 含 iu/iou（由求）、an 含 ian/uan/üan（言前）、en 含 in/un/ün（人辰）、
+ * ong 含 eng/iong（中东）、ie 含 üe/ue（乜斜）、ao 含 iao（遥条）。
+ */
+const YUNMU_BASE: Record<string, string> = {
+  iang: 'ang',
+  uang: 'ang',
+  uai: 'ai',
+  ui: 'ei',   // ui 是 uei 的简写
+  uei: 'ei',
+  ve: 'ie',   // 兼容 üe 的替代写法
+  üe: 'ie',
+  ue: 'ie',
+  iu: 'ou',   // iu 是 iou 的简写
+  iou: 'ou',
+  ian: 'an',
+  uan: 'an',
+  üan: 'an',
+  in: 'en',
+  un: 'en',
+  ün: 'en',
+  eng: 'ong',
+  iong: 'ong',
+  iao: 'ao',
+  ia: 'a',
+  ua: 'a',
+  uo: 'o',
+};
+
 export function getPinyin(char: string): PinyinResult | null {
   try {
-    const result = pinyinPro(char, { toneType: 'num' });
-    if (!result || result === 'none') return null;
+    // full 形如 "guang1"；轻声声调为 0（如 "a0"）
+    const full = pinyinPro(char, { toneType: 'num', type: 'string' });
+    if (!full || full === 'none') return null;
+    const toneMatch = full.match(/(\d)$/);
+    if (!toneMatch) return null;
 
-    // Parse pinyin result (e.g., "zhang" -> shengmu: "zh", yunmu: "ang", tone: 1)
-    const match = result.match(/^([a-z]+?)([a-z]+)(\d)$/);
-    if (!match) return null;
+    // 用结构化 API 切分声母/韵母，避免手写正则切错 zh/ch/sh 和复合韵母
+    const shengmu = pinyinPro(char, { pattern: 'initial', toneType: 'none', type: 'string' }) || '';
+    let rawYunmu = pinyinPro(char, { pattern: 'final', toneType: 'none', type: 'string' }) || '';
+    // pinyin-pro 对 y 开头音节返回去介音形式（羊→ang、言→an），但单独的 ie 韵
+    // （夜/叶/爷，full 形如 "ye4"）会返回 "e"，此处还原为 ie
+    if (rawYunmu === 'e' && full.startsWith('y')) {
+      rawYunmu = 'ie';
+    }
 
     return {
-      shengmu: match[1],
-      yunmu: match[2],
-      tone: parseInt(match[3]),
-      full: result,
+      shengmu,
+      // yunmu 存归一化后的韵基，供押韵分类精确匹配
+      yunmu: YUNMU_BASE[rawYunmu] ?? rawYunmu,
+      tone: parseInt(toneMatch[1]),
+      full,
     };
   } catch {
     return null;

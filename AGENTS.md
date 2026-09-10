@@ -78,9 +78,11 @@ Uses `pinyin-pro` library. Key functions in `src/services/rhymeService.ts`:
 - `getLastCharPinyin(text)` — extracts pinyin from final character
 - `extractYunmu`, `isPing`, `isZe` — categorize pinyin properties
 
-Rules: `none` | `yunmu` (specify value like `"ang"`) | `ping` (tones 1-2) | `ze` (tones 3-4).
+Rules: `none` | `yunmu` (specify value like `"ang"`) | `ping` (tones 1-2) | `ze` (tones 3-4). Neutral tone parses as 0 (轻声) and matches neither ping nor ze.
 
-Rhyme word library at `src/services/rhymeLibrary.ts` — 6 yunmu categories (ang, i, u, ai, ei, ou), 10 words each.
+`getPinyin` in `src/utils/pinyin.ts` uses pinyin-pro's structured API (`pattern: 'initial'/'final'`) and returns the **normalized 韵基** in `yunmu` via the `YUNMU_BASE` map (compound finals fold into their rhyme class: iang/uang→ang, uai→ai, ui/uei→ei, iu/iou→ou, ian/uan/üan→an, in/un/ün→en, eng/iong→ong, üe/ue→ie, iao→ao). Standalone ie syllables (夜/叶, full pinyin "ye*") need the y-prefix special case because pinyin-pro returns "e" for them. Keep `YUNMU_BASE` in sync with the library grouping below.
+
+Rhyme word library at `src/services/rhymeLibrary.ts` — 12 yunmu categories grouped 十三辙-style: ang, i, u, ai, ei, ou, an (含 ian/uan), en (含 in/un), ong (含 eng/iong), ing, ie (含 üe), ao (含 iao), ~40 words each.
 
 ## Character counting
 
