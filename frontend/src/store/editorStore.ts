@@ -422,7 +422,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   loadFromAutoSave: () => {
     const saved = loadAutoSave();
-    if (saved) {
+    // 防御损坏/旧格式的 autosave 数据，避免恢复时整页崩溃
+    if (saved && saved.content && Array.isArray(saved.content.lyrics)) {
       set({
         currentSong: saved.content,
         selectedSectionId: saved.content.lyrics[0]?.id || null,

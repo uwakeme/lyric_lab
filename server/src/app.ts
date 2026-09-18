@@ -58,6 +58,7 @@ app.post('/api/crawler/trigger', authMiddleware, (_req, res) => {
       res.json({ code: 0, message: 'Crawl triggered' });
     })
     .catch(err => {
+      console.error('Manual crawl failed:', err);
       res.status(500).json({ code: 500, message: 'Crawl failed' });
     });
 });

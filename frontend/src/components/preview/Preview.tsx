@@ -1,6 +1,7 @@
 // Lyric preview component - Refined
 import { useState } from 'react';
 import { useEditorStore } from '../../store/editorStore';
+import { getEffectiveText } from '../../utils/lyricText';
 import { X } from 'lucide-react';
 
 interface PreviewProps {
@@ -16,7 +17,7 @@ const themes = [
 
 export function Preview({ onClose, inline = false }: PreviewProps) {
   const [theme, setTheme] = useState('dark');
-  const { currentSong } = useEditorStore();
+  const currentSong = useEditorStore(s => s.currentSong);
 
   if (!currentSong) return null;
 
@@ -48,7 +49,7 @@ export function Preview({ onClose, inline = false }: PreviewProps) {
                   className="text-center leading-relaxed"
                   style={{ fontSize: '1.0625rem', lineHeight: 1.8 }}
                 >
-                  {line.text || <span className="opacity-30">(空行)</span>}
+                  {getEffectiveText(line) || <span className="opacity-30">(空行)</span>}
                 </p>
               ))}
             </div>

@@ -8,7 +8,7 @@ import type { ExportFormat } from '../../types';
 
 export function ExportPanel() {
   const [showFormats, setShowFormats] = useState(false);
-  const { currentSong } = useEditorStore();
+  const hasSong = useEditorStore(s => !!s.currentSong);
   const { success, warning } = useToast();
 
   const formats: { id: ExportFormat; name: string; desc: string; icon: React.ReactNode }[] = [
@@ -39,6 +39,7 @@ export function ExportPanel() {
   ];
 
   const handleExport = (format: ExportFormat) => {
+    const currentSong = useEditorStore.getState().currentSong;
     if (!currentSong) {
       warning('请先加载或导入歌词');
       return;
@@ -58,14 +59,14 @@ export function ExportPanel() {
       <div className="relative">
         <button
           onClick={() => setShowFormats(!showFormats)}
-          disabled={!currentSong}
+          disabled={!hasSong}
           className="btn btn-primary w-full justify-center disabled:opacity-50"
         >
           <Download className="w-4 h-4" />
           导出歌词
         </button>
 
-        {showFormats && currentSong && (
+        {showFormats && hasSong && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setShowFormats(false)} />
             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 z-20 animate-scale-in overflow-hidden">
@@ -91,7 +92,7 @@ export function ExportPanel() {
         )}
       </div>
 
-      {!currentSong && (
+      {!hasSong && (
         <p className="text-xs text-slate-400 text-center py-2">
           加载歌曲后可导出
         </p>

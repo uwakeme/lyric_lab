@@ -29,10 +29,26 @@ router.get('/', asyncHandler(async (req, res) => {
 router.post('/', asyncHandler(async (req, res) => {
   const { songId, content, label } = req.body;
 
+  // 缺失/非对象 content 之前会在 JSON.stringify(undefined).length 处抛 TypeError → 500，应返回 400
+  if (content === undefined || content === null || typeof content !== 'object') {
+    throw new AppError('Content is required and must be a JSON object', 400);
+  }
+
   // Validate content size (max 1MB when stringified)
   const contentStr = JSON.stringify(content);
   if (contentStr.length > 1_000_000) {
     throw new AppError('Content too large', 400);
+  }
+
+  // 校验 songId 存在性，避免外键错误以 500 形式抛出
+  if (songId != null) {
+    if (typeof songId !== 'string') {
+      throw new AppError('Invalid songId', 400);
+    }
+    const song = await prisma.song.findUnique({ where: { id: songId }, select: { id: true } });
+    if (!song) {
+      throw new AppError('Song not found', 404);
+    }
   }
 
   const version = await prisma.userVersion.create({

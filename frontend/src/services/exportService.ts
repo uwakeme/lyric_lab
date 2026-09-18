@@ -1,5 +1,6 @@
 // Export service - handles TXT, LRC, HTML export
 import type { Song, ExportFormat } from '../types';
+import { getEffectiveText } from '../utils/lyricText';
 
 function generateExportFileName(title: string, format: ExportFormat): string {
   const date = new Date().toISOString().slice(0, 10);
@@ -13,7 +14,7 @@ export function exportToTXT(song: Song): void {
   for (const section of song.lyrics) {
     content += `[${section.title}]\n`;
     for (const line of section.lines) {
-      content += `${line.text}\n`;
+      content += `${getEffectiveText(line)}\n`;
     }
     content += '\n';
   }
@@ -40,7 +41,7 @@ export function exportToLRC(song: Song, withTimestamps: boolean = true): void {
         content += `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}]`;
         timestamp += secondsPerLine;
       }
-      content += `${line.text}\n`;
+      content += `${getEffectiveText(line)}\n`;
     }
   }
 
@@ -53,7 +54,7 @@ export function exportToLRCSimple(song: Song): void {
   for (const section of song.lyrics) {
     content += `[${section.title}]\n`;
     for (const line of section.lines) {
-      content += `${line.text}\n`;
+      content += `${getEffectiveText(line)}\n`;
     }
     content += '\n';
   }
@@ -139,7 +140,7 @@ export function exportToHTML(song: Song): void {
       ${song.lyrics.map(section => `
         <div class="section">
           <div class="section-title">${escapeHtml(section.title)}</div>
-          ${section.lines.map(line => `<div class="line">${escapeHtml(line.text)}</div>`).join('')}
+          ${section.lines.map(line => `<div class="line">${escapeHtml(getEffectiveText(line))}</div>`).join('')}
         </div>
       `).join('')}
     </div>

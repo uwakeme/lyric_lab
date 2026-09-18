@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useEditorStore } from './store/editorStore';
 import { useAuthStore } from './store/authStore';
-import { ToastContainer, useToast } from './components/common/Toast';
+import { ToastContainer, useToastStore } from './components/common/Toast';
 import { Onboarding } from './components/common/Onboarding';
 import { ImportPanel } from './components/import/ImportPanel';
 import { ExportPanel } from './components/export/ExportPanel';
@@ -24,16 +24,20 @@ export default function App() {
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const { currentSong, loadFromAutoSave } = useEditorStore();
-  const { checkAuth } = useAuthStore();
-  const { toasts, dismissToast, success } = useToast();
+  // 只订阅需要的切片，避免每次击键导致整棵组件树重渲染
+  const hasSong = useEditorStore(s => !!s.currentSong);
+  const loadFromAutoSave = useEditorStore(s => s.loadFromAutoSave);
+  const checkAuth = useAuthStore(s => s.checkAuth);
+  const toasts = useToastStore(s => s.toasts);
+  const dismissToast = useToastStore(s => s.dismissToast);
+  const addToast = useToastStore(s => s.addToast);
 
   useEffect(() => {
     checkAuth();
 
     // Check for auto-saved content
     if (loadFromAutoSave()) {
-      success('已恢复上次编辑内容');
+      addToast('success', '已恢复上次编辑内容');
     }
   }, []);
 
@@ -169,6 +173,37 @@ export default function App() {
           </>
         )}
 
+        {/* Mobile Right Panel Drawer (押韵/概览) */}
+        {isRightPanelOpen && (
+          <>
+            <div
+              className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm animate-fade-in"
+              onClick={() => setIsRightPanelOpen(false)}
+            />
+            <div className="lg:hidden fixed right-0 top-0 bottom-0 w-80 bg-white z-50 shadow-xl flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-accent-500" />
+                  <span className="font-semibold text-slate-900">押韵参考</span>
+                </div>
+                <button
+                  onClick={() => setIsRightPanelOpen(false)}
+                  className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                  aria-label="关闭押韵面板"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              <div className="p-4 pb-0">
+                <LyricOverview />
+              </div>
+              <div className="flex-1 min-h-0">
+                <RhymePanel />
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Center - Editor */}
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
           <EditorToolbar />
@@ -208,7 +243,7 @@ export default function App() {
             <div className="flex-1 min-h-0">
               <div className="animate-fade-in h-full">
                 {rightTab === 'rhyme' && <RhymePanel />}
-                {rightTab === 'preview' && currentSong && (
+                {rightTab === 'preview' && hasSong && (
                   <Preview inline onClose={() => setRightTab('rhyme')} />
                 )}
               </div>
@@ -229,7 +264,7 @@ export default function App() {
 
         <button
           onClick={() => setShowPreview(true)}
-          disabled={!currentSong}
+          disabled={!hasSong}
           className="flex flex-col items-center gap-1 text-slate-600 disabled:opacity-40 active:text-primary-600 transition-colors"
         >
           <Eye className="w-5 h-5" />
@@ -237,7 +272,7 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+          onClick={() => setIsRightPanelOpen(true)}
           className="flex flex-col items-center gap-1 text-slate-600 active:text-accent-600 transition-colors"
         >
           <Sparkles className="w-5 h-5" />

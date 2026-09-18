@@ -102,13 +102,12 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   );
 }
 
-// Hook that reads from the global store
+// Hook that reads from the global store.
+// 只订阅 action（引用恒定），不订阅 toasts 数组，避免任意 toast 弹出导致所有调用方重渲染。
 export function useToast() {
-  const { toasts, addToast, dismissToast } = useToastStore();
+  const addToast = useToastStore(s => s.addToast);
 
   return {
-    toasts,
-    dismissToast,
     success: (msg: string) => addToast('success', msg),
     error: (msg: string) => addToast('error', msg),
     warning: (msg: string) => addToast('warning', msg),

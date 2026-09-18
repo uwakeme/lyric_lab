@@ -2,6 +2,14 @@
 import type { User, AuthTokens, ApiResponse } from '../types';
 
 const API_BASE = '/api';
+
+/** 网络故障（后端/代理不可用）：不应被当作登录失效 */
+export class NetworkError extends Error {
+  constructor(message = 'Network error') {
+    super(message);
+    this.name = 'NetworkError';
+  }
+}
 const ACCESS_TOKEN_KEY = 'lyriclab_access_token';
 const REFRESH_TOKEN_KEY = 'lyriclab_refresh_token';
 const USER_KEY = 'lyriclab_user';
@@ -100,21 +108,49 @@ export async function refreshAccessToken(): Promise<string> {
   return accessToken;
 }
 
+/** 网络/解析失败返回 null（区别于鉴权失败，不应清 token） */
+async function fetchMe(token: string): Promise<ApiResponse<User> | null> {
+  try {
+    const response = await fetch(`${API_BASE}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchCurrentUser(): Promise<User> {
-  const response = await fetch(`${API_BASE}/auth/me`, {
-    headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
-    },
-  });
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
 
-  const data: ApiResponse<User> = await response.json();
+  let data = await fetchMe(token);
 
-  if (data.code !== 0) {
+  // accessToken 失效时自动用 refreshToken 换一次新 token 重试，避免用户被强制登出
+  if (data && (data.code === 401 || data.code === 403)) {
+    try {
+      const freshToken = await refreshAccessToken();
+      data = await fetchMe(freshToken);
+    } catch {
+      clearTokens();
+      throw new Error('Session expired');
+    }
+  }
+
+  if (!data) {
+    throw new NetworkError();
+  }
+  if (data.code !== 0 || !data.data) {
+    clearTokens();
     throw new Error(data.message || 'Failed to fetch user');
   }
 
-  setStoredUser(data.data!);
-  return data.data!;
+  setStoredUser(data.data);
+  return data.data;
 }
 
 export async function ensureValidToken(): Promise<string> {

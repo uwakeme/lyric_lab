@@ -16,7 +16,9 @@ export function RhymePanel() {
   const [selectedYunmu, setSelectedYunmu] = useState<string | null>(null);
   const [copiedWord, setCopiedWord] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const { currentSong, selectedLineId, updateLineText } = useEditorStore();
+  const currentSong = useEditorStore(s => s.currentSong);
+  const selectedLineId = useEditorStore(s => s.selectedLineId);
+  const updateLineText = useEditorStore(s => s.updateLineText);
   const { success } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -26,7 +28,7 @@ export function RhymePanel() {
   const selectedLine = selectedSection?.lines.find(l => l.id === selectedLineId);
 
   const currentYunmu = selectedLine
-    ? getLastCharPinyin(selectedLine.text)?.yunmu
+    ? getLastCharPinyin(selectedLine.adaptedText ?? selectedLine.text)?.yunmu
     : null;
 
   const handleInsertWord = (word: RhymeWord) => {

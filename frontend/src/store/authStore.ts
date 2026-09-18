@@ -69,7 +69,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
     try {
       const user = await authService.fetchCurrentUser();
       set({ user, isAuthenticated: true, isLoading: false });
-    } catch {
+    } catch (err) {
+      // 网络故障不代表登录失效：保留本地会话，离线仍可用
+      if (err instanceof authService.NetworkError) {
+        set({ isLoading: false });
+        return;
+      }
       authService.clearTokens();
       set({ user: null, isAuthenticated: false, isLoading: false });
     }

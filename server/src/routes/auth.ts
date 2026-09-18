@@ -18,9 +18,14 @@ const router = Router();
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// 恒定时间的 dummy hash：邮箱不存在时也执行一次 bcrypt 比较，
+// 避免响应时间差被用来枚举已注册邮箱
+const DUMMY_PASSWORD_HASH = '$2b$12$ZgR5tssGnNY4eJ1/UFqFnO7SWEGKxgXk8T8zfLkRgE.TxX.7MXVWe';
+
 // Register
 router.post('/register', asyncHandler(async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
 
   if (!email || !password) {
     throw new AppError('Email and password are required', 400);
@@ -54,19 +59,16 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
 
 // Login
 router.post('/login', asyncHandler(async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
 
   if (!email || !password) {
     throw new AppError('Email and password are required', 400);
   }
 
   const user = await getUserByEmail(email);
-  if (!user) {
-    throw new AppError('Invalid email or password', 401);
-  }
-
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) {
+  const valid = await verifyPassword(password, user ? user.passwordHash : DUMMY_PASSWORD_HASH);
+  if (!user || !valid) {
     throw new AppError('Invalid email or password', 401);
   }
 

@@ -21,18 +21,16 @@ export function EditorToolbar() {
   const [showSettings, setShowSettings] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const {
-    currentSong,
-    rhymeRule,
-    charLimit,
-    undoStack,
-    redoStack,
-    setRhymeRule,
-    setCharLimit,
-    checkAllRhymes,
-    undo,
-    redo,
-  } = useEditorStore();
+  // 只订阅需要的切片（布尔/稳定引用），避免每次击键重渲染工具栏
+  const rhymeRule = useEditorStore(s => s.rhymeRule);
+  const charLimit = useEditorStore(s => s.charLimit);
+  const canUndo = useEditorStore(s => s.undoStack.length > 0);
+  const canRedo = useEditorStore(s => s.redoStack.length > 0);
+  const setRhymeRule = useEditorStore(s => s.setRhymeRule);
+  const setCharLimit = useEditorStore(s => s.setCharLimit);
+  const checkAllRhymes = useEditorStore(s => s.checkAllRhymes);
+  const undo = useEditorStore(s => s.undo);
+  const redo = useEditorStore(s => s.redo);
   const { success, warning } = useToast();
 
   useEffect(() => {
@@ -73,7 +71,7 @@ export function EditorToolbar() {
    * 检查所有歌词行的押韵情况并显示统计结果
    */
   const handleCheckAll = () => {
-    if (!currentSong) {
+    if (!useEditorStore.getState().currentSong) {
       warning('请先加载歌词');
       return;
     }
@@ -103,7 +101,7 @@ export function EditorToolbar() {
       <div className="flex items-center gap-1">
         <button
           onClick={undo}
-          disabled={undoStack.length === 0}
+          disabled={!canUndo}
           className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           title="撤销 (Ctrl+Z)"
         >
@@ -111,7 +109,7 @@ export function EditorToolbar() {
         </button>
         <button
           onClick={redo}
-          disabled={redoStack.length === 0}
+          disabled={!canRedo}
           className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           title="重做 (Ctrl+Y)"
         >

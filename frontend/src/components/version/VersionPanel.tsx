@@ -65,7 +65,8 @@ export function VersionPanel() {
   const [showLabelInput, setShowLabelInput] = useState(false);
   const [label, setLabel] = useState('');
 
-  const { currentSong, setCurrentSong } = useEditorStore();
+  const hasSong = useEditorStore(s => !!s.currentSong);
+  const setCurrentSong = useEditorStore(s => s.setCurrentSong);
   const { success, warning } = useToast();
 
   const loadVersions = () => {
@@ -77,6 +78,7 @@ export function VersionPanel() {
   }, []);
 
   const handleSaveVersion = () => {
+    const currentSong = useEditorStore.getState().currentSong;
     if (!currentSong) {
       warning('请先加载或导入歌词');
       return;
@@ -96,8 +98,8 @@ export function VersionPanel() {
   };
 
   const handleRestore = (version: Version) => {
-    if (!currentSong) return;
-    saveTempBackup(currentSong);
+    const currentSong = useEditorStore.getState().currentSong;
+    if (currentSong) saveTempBackup(currentSong);
     setCurrentSong(version.content);
     success('已恢复到选定版本');
   };
@@ -132,7 +134,7 @@ export function VersionPanel() {
         ) : (
           <button
             onClick={handleSaveVersion}
-            disabled={!currentSong}
+            disabled={!hasSong}
             className="btn btn-primary w-full justify-center disabled:opacity-50"
           >
             <History className="w-4 h-4" />

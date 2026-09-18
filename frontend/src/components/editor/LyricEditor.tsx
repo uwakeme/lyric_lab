@@ -482,21 +482,18 @@ const SectionBlock = React.memo(function SectionBlock({
  * 显示当前歌曲的所有段落和歌词行，提供编辑功能
  */
 export function LyricEditor() {
-  const {
-    currentSong,
-    selectedSectionId,
-    rhymeRule,
-    charLimit,
-    autoSave,
-    editVersion,
-    addSection,
-    deleteSection,
-    moveSection,
-    updateSectionTitle,
-    addLine,
-    deleteLine,
-    moveLine,
-  } = useEditorStore();
+  const currentSong = useEditorStore(s => s.currentSong);
+  const selectedSectionId = useEditorStore(s => s.selectedSectionId);
+  const rhymeRule = useEditorStore(s => s.rhymeRule);
+  const charLimit = useEditorStore(s => s.charLimit);
+  const editVersion = useEditorStore(s => s.editVersion);
+  const addSection = useEditorStore(s => s.addSection);
+  const deleteSection = useEditorStore(s => s.deleteSection);
+  const moveSection = useEditorStore(s => s.moveSection);
+  const updateSectionTitle = useEditorStore(s => s.updateSectionTitle);
+  const addLine = useEditorStore(s => s.addLine);
+  const deleteLine = useEditorStore(s => s.deleteLine);
+  const moveLine = useEditorStore(s => s.moveLine);
 
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -511,28 +508,49 @@ export function LyricEditor() {
       clearTimeout(autoSaveTimerRef.current);
     }
     autoSaveTimerRef.current = setTimeout(() => {
-      autoSave();
+      autoSaveTimerRef.current = null;
+      useEditorStore.getState().autoSave();
     }, 2000);
+  }, [editVersion]);
 
-    return () => {
+  /**
+   * 关页/切后台时立即落盘，避免丢失防抖窗口内（最长 2s）的最后一次编辑
+   */
+  useEffect(() => {
+    const flush = () => {
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+        useEditorStore.getState().autoSave();
       }
     };
-  }, [editVersion, autoSave]);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('beforeunload', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   /**
    * 键盘快捷键处理
    * Ctrl/Cmd + Z: 撤销
-   * Ctrl/Cmd + Y: 重做
+   * Ctrl/Cmd + Y 或 Ctrl/Cmd + Shift + Z: 重做
    */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        useEditorStore.getState().undo();
+        if (e.shiftKey) {
+          useEditorStore.getState().redo();
+        } else {
+          useEditorStore.getState().undo();
+        }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         useEditorStore.getState().redo();
       }

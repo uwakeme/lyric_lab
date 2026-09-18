@@ -43,7 +43,7 @@ export function ImportPanel() {
   const [hotSongs, setHotSongs] = useState<Song[]>([]);
   const [isLoadingHot, setIsLoadingHot] = useState(false);
 
-  const { setCurrentSong } = useEditorStore();
+  const setCurrentSong = useEditorStore(s => s.setCurrentSong);
   const { success, error, warning } = useToast();
 
   // Load hot songs on mount

@@ -20,7 +20,8 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
   const [errors, setErrors] = useState<{ email?: string; password?: string; confirm?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, register } = useAuthStore();
+  const login = useAuthStore(s => s.login);
+  const register = useAuthStore(s => s.register);
   const { error: showError, success } = useToast();
 
   const validate = (): boolean => {
