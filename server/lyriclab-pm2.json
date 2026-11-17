@@ -1,7 +1,7 @@
 {
   "name": "lyriclab-server",
-  "cwd": "/var/www/lyriclab/server",
-  "script": "dist/app.js",
+  "cwd": "/home/ubuntu/deploy/lyric_lab/server",
+  "script": "app.js",
   "exec_mode": "fork",
   "instances": 1,
   "autorestart": true,
@@ -11,8 +11,8 @@
     "NODE_ENV": "production",
     "PORT": "3001"
   },
-  "error_file": "/var/www/lyriclab/logs/lyriclab-error.log",
-  "out_file": "/var/www/lyriclab/logs/lyriclab-out.log",
+  "error_file": "/home/ubuntu/deploy/lyric_lab/logs/lyriclab-error.log",
+  "out_file": "/home/ubuntu/deploy/lyric_lab/logs/lyriclab-out.log",
   "merge_logs": true,
   "time": true
 }
