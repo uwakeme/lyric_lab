@@ -2,6 +2,9 @@
 
 一个功能完整的在线歌词改编 Web 应用，支持智能填词、押韵检测、版本管理等功能。
 
+- **在线体验**：[lyric-lab.uwakeme.top](https://lyric-lab.uwakeme.top/)
+- **项目主页**：[www.uwakeme.top/lyric_lab](https://www.uwakeme.top/lyric_lab/)
+
 ## 功能特性
 
 - **歌曲导入**：支持在线搜索、离线示例库、手动粘贴导入

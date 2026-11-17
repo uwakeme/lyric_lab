@@ -12,6 +12,23 @@
 <meta property="og:url" content="https://www.uwakeme.top/lyric_lab/">
 <meta property="og:image" content="https://raw.githubusercontent.com/uwakeme/lyric_lab/main/docs/assets/editor-desktop.png">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Lyric Lab 歌词实验室 — 逐字改词，实时押韵">
+<meta name="twitter:description" content="逐字改词的在线工作台：原文与改编词并排，押韵实时判定，460 词词库随取随用，改完即导出。">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Lyric Lab 歌词实验室",
+  "alternateName": "LyricLab",
+  "description": "逐字改词的在线歌词改编工作台：实时押韵检测、460 词押韵词库、字数区间控制、版本管理与 TXT / LRC / HTML 导出。",
+  "url": "https://lyric-lab.uwakeme.top/",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web",
+  "license": "MIT",
+  "codeRepository": "https://github.com/uwakeme/lyric_lab",
+  "offers": { "@type": "Offer", "price": "0" }
+}
+</script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230ea5e9'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='50' fill='white'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -59,6 +76,7 @@ code{font-family:var(--font-mono);font-size:.92em}
 .nav-links{display:flex;gap:24px;margin-left:auto}
 .nav-links a{font-size:14.5px;color:var(--ink-2);text-decoration:none;transition:color .15s}
 .nav-links a:hover{color:var(--primary-700)}
+.nav-links a[href^="http"]{color:var(--primary-700)}
 @media (max-width:860px){.nav-links{display:none}}
 .nav-cta{margin-left:auto}
 @media (min-width:861px){.nav-cta{margin-left:0}}
@@ -76,6 +94,9 @@ code{font-family:var(--font-mono);font-size:.92em}
 .eyebrow{margin:0;font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--primary-700)}
 .h2{margin:14px 0 0;font-family:var(--font-display);font-size:clamp(1.75rem,4vw,2.5rem);line-height:1.25;letter-spacing:-.01em;font-weight:700}
 .lede{max-width:62ch;margin:16px 0 0;color:var(--ink-2);font-size:1.02rem}
+.try-line{margin:14px 0 0;font-size:14.5px;color:var(--dim)}
+.try-line a{color:var(--primary-700);text-decoration:none;border-bottom:1px solid rgba(3,105,161,.32)}
+.try-line a:hover{border-bottom-color:var(--primary-700)}
 
 /* ---------- hero ---------- */
 .hero-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.06fr);gap:clamp(28px,4.5vw,60px);align-items:center;padding-top:clamp(44px,7vw,84px);padding-bottom:clamp(34px,5vw,56px)}
@@ -196,6 +217,7 @@ code{font-family:var(--font-mono);font-size:.92em}
       <a href="#features">功能</a>
       <a href="#ui">界面</a>
       <a href="#start">快速开始</a>
+      <a href="https://lyric-lab.uwakeme.top/" target="_blank" rel="noopener">在线体验</a>
     </nav>
     <a class="btn btn-ghost btn-sm nav-cta" href="https://github.com/uwakeme/lyric_lab" target="_blank" rel="noopener">GitHub</a>
   </div>
@@ -341,6 +363,7 @@ code{font-family:var(--font-mono);font-size:.92em}
       <p class="eyebrow reveal">GET STARTED</p>
       <h2 class="h2 reveal">本地跑起来</h2>
       <p class="lede reveal">需要 Node.js 18+ 与 PostgreSQL 14+。仓库自带 docker-compose.yml，数据库一条命令就起来。</p>
+      <p class="try-line reveal">想先看看效果，可以直接打开 <a href="https://lyric-lab.uwakeme.top/" target="_blank" rel="noopener">线上站点</a>，不装环境也能写。</p>
       <div class="start-grid">
         <div class="steps">
           <div class="step reveal">
