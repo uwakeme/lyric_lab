@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lyric Lab 歌词实验室 — 逐字改词，实时押韵</title>
+<meta name="description" content="LyricLab 歌词实验室：逐字改词的在线工作台。实时押韵检测（指定韵母 / 平声尾 / 仄声尾）、460 词押韵词库、字数区间控制、版本管理与 TXT / LRC / HTML 导出。">
+<link rel="canonical" href="https://uwakeme.github.io/lyric_lab/">
+<meta property="og:title" content="Lyric Lab 歌词实验室 — 逐字改词，实时押韵">
+<meta property="og:description" content="逐字改词的在线工作台：原文与改编词并排，押韵实时判定，460 词词库随取随用，改完即导出。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://uwakeme.github.io/lyric_lab/">
+<meta property="og:image" content="https://raw.githubusercontent.com/uwakeme/lyric_lab/main/docs/assets/editor-desktop.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230ea5e9'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='50' fill='white'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js');</script>
+<style>
+:root{
+  --bg:#f7f9fb;
+  --surface:#ffffff;
+  --surface-2:#f1f5f9;
+  --border:#e3e8ef;
+  --border-strong:#cbd5e1;
+  --ink:#0f172a;
+  --ink-2:#334155;
+  --dim:#64748b;
+  --primary:#0ea5e9;
+  --primary-700:#0369a1;
+  --primary-50:#f0f9ff;
+  --ok:#16a34a;
+  --bad:#dc2626;
+  --font-display:'Space Grotesk','PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif;
+  --font-body:system-ui,-apple-system,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'PingFang SC',monospace;
+  --maxw:1140px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit}
+h1,h2,h3{margin:0}
+ul{margin:0;padding:0;list-style:none}
+.wrap{max-width:var(--maxw);margin:0 auto;padding-left:clamp(16px,5vw,40px);padding-right:clamp(16px,5vw,40px)}
+:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:4px}
+code{font-family:var(--font-mono);font-size:.92em}
+
+/* ---------- nav ---------- */
+.nav{position:sticky;top:0;z-index:20;background:rgba(247,249,251,.88);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;gap:20px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;flex:0 0 auto}
+.brand-mark{width:30px;height:30px;border-radius:8px;background:var(--primary);display:grid;place-items:center;flex:0 0 30px}
+.brand-mark svg{width:17px;height:17px;fill:#fff}
+.brand-en{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-.01em}
+.brand-cn{font-family:var(--font-mono);font-size:11.5px;color:var(--dim);letter-spacing:.06em;margin-left:8px}
+.nav-links{display:flex;gap:24px;margin-left:auto}
+.nav-links a{font-size:14.5px;color:var(--ink-2);text-decoration:none;transition:color .15s}
+.nav-links a:hover{color:var(--primary-700)}
+@media (max-width:860px){.nav-links{display:none}}
+.nav-cta{margin-left:auto}
+@media (min-width:861px){.nav-cta{margin-left:0}}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border:1px solid transparent;border-radius:10px;font-family:var(--font-body);font-size:15px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .16s,border-color .16s,color .16s,transform .16s}
+.btn-sm{height:36px;padding:0 14px;font-size:14px;border-radius:9px}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(14,165,233,.3)}
+.btn-primary:hover{background:#0284c7}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--border-strong)}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary-700)}
+.btn:active{transform:translateY(1px)}
+
+/* ---------- type ---------- */
+.eyebrow{margin:0;font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--primary-700)}
+.h2{margin:14px 0 0;font-family:var(--font-display);font-size:clamp(1.75rem,4vw,2.5rem);line-height:1.25;letter-spacing:-.01em;font-weight:700}
+.lede{max-width:62ch;margin:16px 0 0;color:var(--ink-2);font-size:1.02rem}
+
+/* ---------- hero ---------- */
+.hero-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.06fr);gap:clamp(28px,4.5vw,60px);align-items:center;padding-top:clamp(44px,7vw,84px);padding-bottom:clamp(34px,5vw,56px)}
+.hero-copy{min-width:0}
+.hero-title{margin:18px 0 0;font-family:var(--font-display);font-size:clamp(2.7rem,7.4vw,4.3rem);line-height:1.02;letter-spacing:-.03em;font-weight:700}
+.hero-cn{display:block;margin-top:14px;font-family:var(--font-body);font-size:.3em;font-weight:500;letter-spacing:.34em;color:var(--dim)}
+.hero-lead{margin:26px 0 0;font-size:clamp(1.12rem,2.2vw,1.42rem);font-weight:600;line-height:1.55;letter-spacing:-.01em}
+.hero-desc{margin:16px 0 0;max-width:44ch;color:var(--ink-2)}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.hero-note{margin:18px 0 0;font-family:var(--font-mono);font-size:12.5px;color:var(--dim)}
+.hero-shot{margin:0;min-width:0}
+.hero-shot img{width:100%;height:auto;border:1px solid var(--border);border-radius:16px;background:#fff;box-shadow:0 22px 46px -28px rgba(15,23,42,.42);transform:rotate(1.1deg)}
+.hero-shot figcaption{margin-top:16px;font-family:var(--font-mono);font-size:12px;color:var(--dim)}
+@media (max-width:980px){
+  .hero-in{grid-template-columns:minmax(0,1fr);padding-top:34px}
+  .hero-shot img{transform:none}
+}
+.yunmu-band{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:18px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.band-label{font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;color:var(--dim);white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--font-mono);font-size:12.5px;padding:4px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink-2)}
+.chip b{color:var(--ink);font-weight:700}
+.chip i{font-style:normal;color:var(--dim);margin-left:5px}
+
+/* ---------- bands ---------- */
+.band{padding:clamp(54px,8vw,104px) 0}
+.band-alt{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+
+/* ---------- rhyme verdict list ---------- */
+.mark-list{margin-top:30px;border-top:1px solid var(--border)}
+.mark{display:grid;grid-template-columns:3.2rem minmax(0,1fr) auto;align-items:center;gap:18px;padding:16px 0 16px 14px;margin-left:-14px;border-bottom:1px solid var(--border);border-left:3px solid transparent}
+.mark.ok{border-left-color:var(--ok)}
+.mark.bad{border-left-color:var(--bad)}
+.mark-char{font-size:1.65rem;font-weight:600;line-height:1.1}
+.mark-meta{display:flex;flex-wrap:wrap;gap:6px 18px;min-width:0;font-family:var(--font-mono);font-size:13.5px;color:var(--dim)}
+.mark-meta b{font-weight:500;color:var(--ink-2)}
+.mark-meta b:first-child{color:var(--ink);font-weight:700}
+.mark-verdict{font-size:14px;font-weight:700;white-space:nowrap}
+.mark.ok .mark-verdict{color:var(--ok)}
+.mark.bad .mark-verdict{color:var(--bad)}
+@media (max-width:720px){
+  .mark{grid-template-columns:2.8rem minmax(0,1fr);grid-template-areas:"c m" "c v";row-gap:10px;column-gap:14px}
+  .mark-char{grid-area:c}
+  .mark-meta{grid-area:m}
+  .mark-verdict{grid-area:v}
+}
+.rhyme-note{margin:22px 0 0;font-size:14px;color:var(--dim)}
+.rhyme-note code{color:var(--ink-2);background:var(--surface-2);padding:2px 6px;border-radius:5px}
+
+/* ---------- features ---------- */
+.feat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 clamp(24px,4vw,56px);margin-top:34px}
+.feat{padding:24px 0 26px;border-top:1px solid var(--border);min-width:0}
+.feat h3{display:flex;align-items:center;gap:10px;font-size:1.02rem;font-weight:700;letter-spacing:-.01em}
+.feat .ic{width:21px;height:21px;flex:0 0 21px;color:var(--primary)}
+.feat p{margin:10px 0 0;color:var(--ink-2);font-size:14.8px;line-height:1.75}
+@media (max-width:860px){.feat-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- gallery ---------- */
+.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(20px,3vw,32px);align-items:start;margin-top:34px}
+.shot{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center}
+.shot img{width:100%;max-width:300px;height:auto;border:1px solid var(--border);border-radius:12px;background:#fff;box-shadow:0 16px 34px -26px rgba(15,23,42,.45)}
+.shot figcaption{margin-top:14px;font-size:14px;color:var(--dim);text-align:center;max-width:34ch}
+@media (max-width:860px){
+  .gallery{grid-template-columns:minmax(0,1fr);gap:26px}
+  .shot img{max-width:260px}
+}
+
+/* ---------- quick start ---------- */
+.start-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:clamp(26px,4vw,52px);margin-top:34px}
+.steps{min-width:0}
+.step{padding:20px 0;border-top:1px solid var(--border)}
+.step h3{font-size:.98rem;font-weight:700}
+.step-note{margin:10px 0 0;font-size:13.5px;color:var(--dim)}
+.step-note code{background:var(--surface-2);padding:1px 5px;border-radius:5px;color:var(--ink-2)}
+.code{position:relative;margin-top:12px;background:#0b1220;border-radius:12px;padding:14px 16px;overflow:hidden}
+.code pre{margin:0;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.75;color:#e2e8f0;-webkit-overflow-scrolling:touch}
+.copy{position:absolute;top:9px;right:9px;height:28px;padding:0 10px;font-family:var(--font-body);font-size:12.5px;font-weight:600;color:#cbd5e1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:7px;cursor:pointer;transition:background .15s,color .15s}
+.copy:hover{background:rgba(255,255,255,.16);color:#fff}
+.aside{min-width:0}
+.stack-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:18px}
+.stack-card h3{font-size:.95rem;font-weight:700;margin-bottom:12px}
+.stack-card li{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-family:var(--font-mono);font-size:13px;color:var(--ink-2)}
+.stack-card li span{color:var(--dim)}
+@media (max-width:900px){.start-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- footer ---------- */
+.foot{background:#0b1220;color:#cbd5e1;padding:clamp(40px,6vw,64px) 0 28px}
+.foot-in{display:flex;flex-wrap:wrap;gap:20px 32px;align-items:flex-start;justify-content:space-between}
+.foot-brand{margin:0;font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#fff}
+.foot-note{margin:8px 0 0;font-size:14px;color:#94a3b8}
+.foot-links{display:flex;flex-wrap:wrap;gap:22px}
+.foot-links a{font-size:14.5px;color:#cbd5e1;text-decoration:none;border-bottom:1px solid rgba(203,213,225,.3);padding-bottom:2px}
+.foot-links a:hover{color:#fff;border-bottom-color:#38bdf8}
+.foot-meta{margin-top:36px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1)}
+.foot-meta p{margin:0;font-family:var(--font-mono);font-size:12.5px;color:#7c8ba1}
+
+/* ---------- reveal ---------- */
+.js .reveal{opacity:0;transform:translateY(12px);transition:opacity .55s ease,transform .55s ease}
+.js .reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .js .reveal{opacity:1;transform:none;transition:none}
+  .btn:active{transform:none}
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+      <span class="brand-en">Lyric Lab</span>
+      <span class="brand-cn">歌词实验室</span>
+    </a>
+    <nav class="nav-links" aria-label="页面导航">
+      <a href="#rhyme">押韵判定</a>
+      <a href="#features">功能</a>
+      <a href="#ui">界面</a>
+      <a href="#start">快速开始</a>
+    </nav>
+    <a class="btn btn-ghost btn-sm nav-cta" href="https://github.com/uwakeme/lyric_lab" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div class="hero-copy">
+        <p class="eyebrow">在线歌词改编工作台</p>
+        <h1 class="hero-title">
+          Lyric Lab
+          <span class="hero-cn">歌词实验室</span>
+        </h1>
+        <p class="hero-lead">逐字改词，实时押韵。<br>把一首歌的词，改成你想唱的那一版。</p>
+        <p class="hero-desc">原文与改编词一字一格并排。押韵规则一开，每行末字立刻标绿或标红；改完导出 TXT、LRC 或 HTML 歌词页。</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="https://lyric-lab.uwakeme.top/" target="_blank" rel="noopener">打开线上站点</a>
+          <a class="btn btn-ghost" href="https://github.com/uwakeme/lyric_lab" target="_blank" rel="noopener">查看仓库</a>
+        </div>
+        <p class="hero-note">MIT 许可 · React + Express + PostgreSQL · 不登录&nbsp;也能写</p>
+      </div>
+      <figure class="hero-shot">
+        <img src="assets/editor-desktop.png" width="1440" height="900" alt="LyricLab 桌面端界面：左侧歌曲导入，中间逐字编辑区，右侧歌词概览与押韵词库">
+        <figcaption>桌面端 · 导入 / 逐字编辑 / 词库，三栏同屏</figcaption>
+      </figure>
+    </div>
+    <div class="wrap">
+      <div class="yunmu-band">
+        <span class="band-label">词库 460 词 · 12 个韵类</span>
+        <ul class="chips">
+          <li class="chip"><b>ang</b><i>41</i></li>
+          <li class="chip"><b>i</b><i>38</i></li>
+          <li class="chip"><b>u</b><i>38</i></li>
+          <li class="chip"><b>ai</b><i>37</i></li>
+          <li class="chip"><b>ei</b><i>37</i></li>
+          <li class="chip"><b>ou</b><i>37</i></li>
+          <li class="chip"><b>an</b><i>41</i></li>
+          <li class="chip"><b>en</b><i>36</i></li>
+          <li class="chip"><b>ong</b><i>39</i></li>
+          <li class="chip"><b>ing</b><i>36</i></li>
+          <li class="chip"><b>ie</b><i>39</i></li>
+          <li class="chip"><b>ao</b><i>41</i></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-alt" id="rhyme">
+    <div class="wrap">
+      <p class="eyebrow reveal">RHYME</p>
+      <h2 class="h2 reveal">押韵怎么判</h2>
+      <p class="lede reveal">每行只看最后一个字：取拼音 → 折算韵基 → 比对声调。介音不参与押韵，复合韵母按十三辙归类，所以「圆」和「天」算同一个韵。</p>
+      <div class="mark-list reveal">
+        <div class="mark ok">
+          <span class="mark-char">天</span>
+          <span class="mark-meta"><b>tiān</b><b>an</b><b>言前辙</b><b>1 声 · 平</b></span>
+          <span class="mark-verdict">✓ 命中</span>
+        </div>
+        <div class="mark ok">
+          <span class="mark-char">圆</span>
+          <span class="mark-meta"><b>yuán</b><b>an</b><b>言前辙</b><b>2 声 · 平</b></span>
+          <span class="mark-verdict">✓ 命中</span>
+        </div>
+        <div class="mark bad">
+          <span class="mark-char">影</span>
+          <span class="mark-meta"><b>yǐng</b><b>ing</b><b>中东辙</b><b>3 声 · 仄</b></span>
+          <span class="mark-verdict">✗ 韵基 ing ≠ an</span>
+        </div>
+        <div class="mark bad">
+          <span class="mark-char">缺</span>
+          <span class="mark-meta"><b>quē</b><b>ie</b><b>乜斜辙</b><b>1 声 · 平</b></span>
+          <span class="mark-verdict">✗ 韵基 ie ≠ an</span>
+        </div>
+      </div>
+      <p class="rhyme-note reveal">示例规则：指定韵母 <code>an</code>。切成「平声尾 / 仄声尾」时改比声调 —— 一声二声为平，三声四声为仄。</p>
+    </div>
+  </section>
+
+  <section class="band" id="features">
+    <div class="wrap">
+      <p class="eyebrow reveal">FEATURES</p>
+      <h2 class="h2 reveal">一台改词台该有的东西</h2>
+      <p class="lede reveal">从导入到导出，中间只隔着一个字格。</p>
+      <div class="feat-grid">
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>逐字编辑器</h3>
+          <p>原文与改编词一字一格并排，改一个字就重排一行。段落可以新增、复制、上下移动，标题也能改。</p>
+        </div>
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.2 12.4 2.6 2.6 5-5.6"/></svg>四种押韵规则</h3>
+          <p>无押韵、指定韵母、平声尾、仄声尾随时切换。命中标绿、不合标红，「检查全文」给出整篇匹配率。</p>
+        </div>
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>460 词押韵词库</h3>
+          <p>12 个韵类按十三辙归组，每类附拼音。可以搜中文也可以搜拼音，点一下词就插到当前行末。</p>
+        </div>
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>字数区间</h3>
+          <p>给每句设定字数上下限，超限立刻有提示。右侧概览实时给出段落数、行数、总字数和平均行长。</p>
+        </div>
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/><path d="M12 7.5V12l3 2"/></svg>版本管理</h3>
+          <p>本地保存带标签的版本，和当前稿并排对比，差异逐句高亮，一键恢复。登录之后还能同步到云端。</p>
+        </div>
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>四种导出</h3>
+          <p>TXT 文本、LRC（带时间戳）、LRC（纯歌词）、HTML 歌词页。文件名带歌名与导出时间。</p>
+        </div>
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2"/></svg>曲库自动入库</h3>
+          <p>node-cron 每天凌晨两点抓 QQ 音乐与网易云的热歌进库。想快点的话，直接粘贴歌词导入也一样快。</p>
+        </div>
+        <div class="feat reveal">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.7-1.3A4.5 4.5 0 0 0 6.5 19Z"/></svg>离线与账号</h3>
+          <p>编辑、押韵、版本、导出都在浏览器本地完成，不登录也能写。注册后 access + refresh 双 Token 自动续期。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-alt" id="ui">
+    <div class="wrap">
+      <p class="eyebrow reveal">SCREENSHOTS</p>
+      <h2 class="h2 reveal">海报预览，与手机上的样子</h2>
+      <p class="lede reveal">以下截图取自线上部署的真实界面。</p>
+      <div class="gallery">
+        <figure class="shot reveal">
+          <img class="shot-poster" src="assets/preview-poster.png" width="1067" height="2000" alt="LyricLab 预览面板生成的暗夜主题歌词海报：歌名居中，副歌分行排版，底部标注由 Lyric Lab 生成">
+          <figcaption>预览海报 · 暗夜 / 清新 / 暖阳三套主题，改完直接截图分享</figcaption>
+        </figure>
+        <figure class="shot reveal">
+          <img class="shot-poster" src="assets/editor-mobile.png" width="1170" height="2532" alt="LyricLab 移动端界面：单栏逐字编辑，底部为菜单、预览、押韵三个标签">
+          <figcaption>移动端 · 单栏编辑，底部标签切换面板</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="start">
+    <div class="wrap">
+      <p class="eyebrow reveal">GET STARTED</p>
+      <h2 class="h2 reveal">本地跑起来</h2>
+      <p class="lede reveal">需要 Node.js 18+ 与 PostgreSQL 14+。仓库自带 docker-compose.yml，数据库一条命令就起来。</p>
+      <div class="start-grid">
+        <div class="steps">
+          <div class="step reveal">
+            <h3>1 · 起数据库</h3>
+            <div class="code">
+              <pre><code id="cmd-db">docker compose up -d</code></pre>
+              <button type="button" class="copy" data-copy="cmd-db">复制</button>
+            </div>
+            <p class="step-note">库名 <code>lyric_lab</code>，账号 <code>postgres</code> / <code>123456</code>，端口 5432。</p>
+          </div>
+          <div class="step reveal">
+            <h3>2 · 拉代码、装依赖</h3>
+            <div class="code">
+              <pre><code id="cmd-install">git clone https://github.com/uwakeme/lyric_lab.git
+cd lyric_lab
+cd frontend &amp;&amp; npm install &amp;&amp; cd ..
+cd server &amp;&amp; npm install &amp;&amp; cd ..</code></pre>
+              <button type="button" class="copy" data-copy="cmd-install">复制</button>
+            </div>
+          </div>
+          <div class="step reveal">
+            <h3>3 · 配置与迁移</h3>
+            <div class="code">
+              <pre><code id="cmd-migrate">cd server
+cp .env.example .env
+npx prisma migrate dev</code></pre>
+              <button type="button" class="copy" data-copy="cmd-migrate">复制</button>
+            </div>
+            <p class="step-note">想先塞点示例数据，再跑一次 <code>npx tsx src/db/seed.ts</code>。</p>
+          </div>
+          <div class="step reveal">
+            <h3>4 · 启动</h3>
+            <div class="code">
+              <pre><code id="cmd-run"># 终端 1：后端 :3001
+cd server &amp;&amp; npm run dev
+
+# 终端 2：前端 :5173
+cd frontend &amp;&amp; npm run dev</code></pre>
+              <button type="button" class="copy" data-copy="cmd-run">复制</button>
+            </div>
+            <p class="step-note">然后打开 http://localhost:5173</p>
+          </div>
+        </div>
+        <aside class="aside">
+          <div class="stack-card reveal">
+            <h3>前端</h3>
+            <ul>
+              <li>React 18 <span>· 组件化</span></li>
+              <li>TypeScript</li>
+              <li>Zustand <span>· 状态</span></li>
+              <li>Tailwind CSS</li>
+              <li>Vite</li>
+              <li>pinyin-pro <span>· 拼音</span></li>
+              <li>lucide-react <span>· 图标</span></li>
+            </ul>
+          </div>
+          <div class="stack-card reveal">
+            <h3>后端</h3>
+            <ul>
+              <li>Node.js + Express</li>
+              <li>TypeScript</li>
+              <li>Prisma ORM</li>
+              <li>PostgreSQL</li>
+              <li>JWT <span>· 双 Token</span></li>
+              <li>bcrypt</li>
+              <li>node-cron</li>
+            </ul>
+          </div>
+          <div class="stack-card reveal">
+            <h3>部署</h3>
+            <ul>
+              <li>GitHub Actions <span>· 自动构建</span></li>
+              <li>服务器部署</li>
+              <li>PM2 <span>· 守护后端</span></li>
+              <li>prisma migrate deploy</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div>
+      <p class="foot-brand">Lyric Lab · 歌词实验室</p>
+      <p class="foot-note">逐字改词，实时押韵的在线工作台</p>
+    </div>
+    <nav class="foot-links" aria-label="相关链接">
+      <a href="https://github.com/uwakeme/lyric_lab" target="_blank" rel="noopener">GitHub 仓库</a>
+      <a href="https://lyric-lab.uwakeme.top/" target="_blank" rel="noopener">线上站点</a>
+      <a href="https://github.com/uwakeme/lyric_lab#readme" target="_blank" rel="noopener">README</a>
+    </nav>
+  </div>
+  <div class="wrap foot-meta">
+    <p>MIT License（见仓库 README）· 页面内容取自仓库与线上部署，未作修饰</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var el = document.getElementById(btn.getAttribute('data-copy'));
+      if(!el){return;}
+      var text = el.textContent;
+      var done = function(){
+        var old = btn.textContent;
+        btn.textContent = '已复制';
+        setTimeout(function(){btn.textContent = old;},1600);
+      };
+      var fallback = function(){
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try{document.execCommand('copy');}catch(e){}
+        ta.remove();
+        done();
+      };
+      if(navigator.clipboard && window.isSecureContext){
+        navigator.clipboard.writeText(text).then(done, fallback);
+      }else{
+        fallback();
+      }
+    });
+  });
+
+  var items = document.querySelectorAll('.reveal');
+  if(!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    items.forEach(function(el){el.classList.add('in');});
+  }else{
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          entry.target.classList.add('in');
+          io.unobserve(entry.target);
+        }
+      });
+    },{rootMargin:'0px 0px -10% 0px',threshold:0.06});
+    items.forEach(function(el){io.observe(el);});
+  }
+})();
+</script>
+</body>
+</html>
